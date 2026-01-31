@@ -6,13 +6,16 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "black>=26.1.0",
+    "cryptography>=46.0.4",
     "django>=6.0.1",
     "django-allauth>=65.14.0",
     "django-ipware>=7.0.1",
     "django-user-agents>=0.4.0",
     "gunicorn>=24.1.1",
     "psycopg2-binary>=2.9.11",
+    "pyjwt>=2.11.0",
     "python-dotenv>=1.2.1",
+    "requests>=2.32.5",
     "ruff>=0.8.6",
     "sqids>=0.5.2",
     "whitenoise>=6.11.0",
@@ -36,7 +39,10 @@ select = [
     "B",   # flake8-bugbear
     "DJ",  # flake8-django
 ]
-ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"*/settings.py" = ["E501"]
+"*/settings/*.py" = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["core", "shortener", "users"]
