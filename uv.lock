@@ -99,6 +99,19 @@ wheels = [
 ]
 
 [[package]]
+name = "django-user-agents"
+version = "0.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "user-agents" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/37/f2/dd96cc880d7549cc9f67c8b1ad8e6695f9731658fdf8aa476f0bcb9c89c7/django-user_agents-0.4.0.tar.gz", hash = "sha256:cda8ae2146cee30e6867a07943f56ecc570b4391d725ab5309901a8b3e4a3514", size = 8501, upload-time = "2019-06-22T13:33:50.372Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6c/a3/31b2728702f13328cc65d6c8ed652ad8125a9a71489e445c11f188b39f79/django_user_agents-0.4.0-py3-none-any.whl", hash = "sha256:cd9d9f7158b23c5237b2dacb0bc4fffdf77fefe1d2633b5814d3874288ebdb5d", size = 8616, upload-time = "2019-06-22T13:33:48.259Z" },
+]
+
+[[package]]
 name = "gunicorn"
 version = "24.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -219,6 +232,41 @@ wheels = [
 ]
 
 [[package]]
+name = "ruff"
+version = "0.14.14"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/06/f71e3a86b2df0dfa2d2f72195941cd09b44f87711cb7fa5193732cb9a5fc/ruff-0.14.14.tar.gz", hash = "sha256:2d0f819c9a90205f3a867dbbd0be083bee9912e170fd7d9704cc8ae45824896b", size = 4515732, upload-time = "2026-01-22T22:30:17.527Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d2/89/20a12e97bc6b9f9f68343952da08a8099c57237aef953a56b82711d55edd/ruff-0.14.14-py3-none-linux_armv6l.whl", hash = "sha256:7cfe36b56e8489dee8fbc777c61959f60ec0f1f11817e8f2415f429552846aed", size = 10467650, upload-time = "2026-01-22T22:30:08.578Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/b1/c5de3fd2d5a831fcae21beda5e3589c0ba67eec8202e992388e4b17a6040/ruff-0.14.14-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:6006a0082336e7920b9573ef8a7f52eec837add1265cc74e04ea8a4368cd704c", size = 10883245, upload-time = "2026-01-22T22:30:04.155Z" },
+    { url = "https://files.pythonhosted.org/packages/b8/7c/3c1db59a10e7490f8f6f8559d1db8636cbb13dccebf18686f4e3c9d7c772/ruff-0.14.14-py3-none-macosx_11_0_arm64.whl", hash = "sha256:026c1d25996818f0bf498636686199d9bd0d9d6341c9c2c3b62e2a0198b758de", size = 10231273, upload-time = "2026-01-22T22:30:34.642Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/6e/5e0e0d9674be0f8581d1f5e0f0a04761203affce3232c1a1189d0e3b4dad/ruff-0.14.14-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f666445819d31210b71e0a6d1c01e24447a20b85458eea25a25fe8142210ae0e", size = 10585753, upload-time = "2026-01-22T22:30:31.781Z" },
+    { url = "https://files.pythonhosted.org/packages/23/09/754ab09f46ff1884d422dc26d59ba18b4e5d355be147721bb2518aa2a014/ruff-0.14.14-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:3c0f18b922c6d2ff9a5e6c3ee16259adc513ca775bcf82c67ebab7cbd9da5bc8", size = 10286052, upload-time = "2026-01-22T22:30:24.827Z" },
+    { url = "https://files.pythonhosted.org/packages/c8/cc/e71f88dd2a12afb5f50733851729d6b571a7c3a35bfdb16c3035132675a0/ruff-0.14.14-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:1629e67489c2dea43e8658c3dba659edbfd87361624b4040d1df04c9740ae906", size = 11043637, upload-time = "2026-01-22T22:30:13.239Z" },
+    { url = "https://files.pythonhosted.org/packages/67/b2/397245026352494497dac935d7f00f1468c03a23a0c5db6ad8fc49ca3fb2/ruff-0.14.14-py3-none-manylinux_2_17_ppc64.manylinux2014_ppc64.whl", hash = "sha256:27493a2131ea0f899057d49d303e4292b2cae2bb57253c1ed1f256fbcd1da480", size = 12194761, upload-time = "2026-01-22T22:30:22.542Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/06/06ef271459f778323112c51b7587ce85230785cd64e91772034ddb88f200/ruff-0.14.14-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:01ff589aab3f5b539e35db38425da31a57521efd1e4ad1ae08fc34dbe30bd7df", size = 12005701, upload-time = "2026-01-22T22:30:20.499Z" },
+    { url = "https://files.pythonhosted.org/packages/41/d6/99364514541cf811ccc5ac44362f88df66373e9fec1b9d1c4cc830593fe7/ruff-0.14.14-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:1cc12d74eef0f29f51775f5b755913eb523546b88e2d733e1d701fe65144e89b", size = 11282455, upload-time = "2026-01-22T22:29:59.679Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/71/37daa46f89475f8582b7762ecd2722492df26421714a33e72ccc9a84d7a5/ruff-0.14.14-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bb8481604b7a9e75eff53772496201690ce2687067e038b3cc31aaf16aa0b974", size = 11215882, upload-time = "2026-01-22T22:29:57.032Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/10/a31f86169ec91c0705e618443ee74ede0bdd94da0a57b28e72db68b2dbac/ruff-0.14.14-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:14649acb1cf7b5d2d283ebd2f58d56b75836ed8c6f329664fa91cdea19e76e66", size = 11180549, upload-time = "2026-01-22T22:30:27.175Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/1e/c723f20536b5163adf79bdd10c5f093414293cdf567eed9bdb7b83940f3f/ruff-0.14.14-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:e8058d2145566510790eab4e2fad186002e288dec5e0d343a92fe7b0bc1b3e13", size = 10543416, upload-time = "2026-01-22T22:30:01.964Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/34/8a84cea7e42c2d94ba5bde1d7a4fae164d6318f13f933d92da6d7c2041ff/ruff-0.14.14-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:e651e977a79e4c758eb807f0481d673a67ffe53cfa92209781dfa3a996cf8412", size = 10285491, upload-time = "2026-01-22T22:30:29.51Z" },
+    { url = "https://files.pythonhosted.org/packages/55/ef/b7c5ea0be82518906c978e365e56a77f8de7678c8bb6651ccfbdc178c29f/ruff-0.14.14-py3-none-musllinux_1_2_i686.whl", hash = "sha256:cc8b22da8d9d6fdd844a68ae937e2a0adf9b16514e9a97cc60355e2d4b219fc3", size = 10733525, upload-time = "2026-01-22T22:30:06.499Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/5b/aaf1dfbcc53a2811f6cc0a1759de24e4b03e02ba8762daabd9b6bd8c59e3/ruff-0.14.14-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:16bc890fb4cc9781bb05beb5ab4cd51be9e7cb376bf1dd3580512b24eb3fda2b", size = 11315626, upload-time = "2026-01-22T22:30:36.848Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/aa/9f89c719c467dfaf8ad799b9bae0df494513fb21d31a6059cb5870e57e74/ruff-0.14.14-py3-none-win32.whl", hash = "sha256:b530c191970b143375b6a68e6f743800b2b786bbcf03a7965b06c4bf04568167", size = 10502442, upload-time = "2026-01-22T22:30:38.93Z" },
+    { url = "https://files.pythonhosted.org/packages/87/44/90fa543014c45560cae1fffc63ea059fb3575ee6e1cb654562197e5d16fb/ruff-0.14.14-py3-none-win_amd64.whl", hash = "sha256:3dde1435e6b6fe5b66506c1dff67a421d0b7f6488d466f651c07f4cab3bf20fd", size = 11630486, upload-time = "2026-01-22T22:30:10.852Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/6a/40fee331a52339926a92e17ae748827270b288a35ef4a15c9c8f2ec54715/ruff-0.14.14-py3-none-win_arm64.whl", hash = "sha256:56e6981a98b13a32236a72a8da421d7839221fa308b223b9283312312e5ac76c", size = 10920448, upload-time = "2026-01-22T22:30:15.417Z" },
+]
+
+[[package]]
+name = "sqids"
+version = "0.5.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/5b/98c1b37109210631875092d9e7cb7aef3fda2f03780dd999fe5854afa5f3/sqids-0.5.2.tar.gz", hash = "sha256:5ac08f0c5c9b6814bc2e7c79ee5931e0849d25d95c50e415771b022a44f58af9", size = 18213, upload-time = "2025-05-13T16:36:35.644Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7c/96/178018f3d5b871042e257e9e1db26c6aeb2a704e72cdc884cd2a8918ac2b/sqids-0.5.2-py3-none-any.whl", hash = "sha256:0089ba823e21fd44290c7225f02fb0b5140c36e41959c04d86d3f6f2513799be", size = 8870, upload-time = "2025-05-13T16:36:34.072Z" },
+]
+
+[[package]]
 name = "sqlparse"
 version = "0.5.5"
 source = { registry = "https://pypi.org/simple" }
@@ -237,6 +285,26 @@ wheels = [
 ]
 
 [[package]]
+name = "ua-parser"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ua-parser-builtins" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/70/0e/ed98be735bc89d5040e0c60f5620d0b8c04e9e7da99ed1459e8050e90a77/ua_parser-1.0.1.tar.gz", hash = "sha256:f9d92bf19d4329019cef91707aecc23c6d65143ad7e29a233f0580fb0d15547d", size = 728106, upload-time = "2025-02-01T14:13:32.508Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/94/37/be6dfbfa45719aa82c008fb4772cfe5c46db765a2ca4b6f524a1fdfee4d7/ua_parser-1.0.1-py3-none-any.whl", hash = "sha256:b059f2cb0935addea7e551251cbbf42e9a8872f86134163bc1a4f79e0945ffea", size = 31410, upload-time = "2025-02-01T14:13:28.458Z" },
+]
+
+[[package]]
+name = "ua-parser-builtins"
+version = "202601"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fd/82/aab481e2fc6dee0a13ce35c750e97dbe3f270fb327089c99a8f5e6900e0c/ua_parser_builtins-202601-py3-none-any.whl", hash = "sha256:f5dc93b0f53724dcd5c3eb79edb0aea281cb304a2c02a9436cbeb8cfb8bc4ad1", size = 89228, upload-time = "2026-01-02T08:58:23.453Z" },
+]
+
+[[package]]
 name = "urlshortener"
 version = "0.1.0"
 source = { virtual = "." }
@@ -245,9 +313,12 @@ dependencies = [
     { name = "django" },
     { name = "django-allauth" },
     { name = "django-ipware" },
+    { name = "django-user-agents" },
     { name = "gunicorn" },
     { name = "psycopg2-binary" },
     { name = "python-dotenv" },
+    { name = "ruff" },
+    { name = "sqids" },
     { name = "whitenoise" },
 ]
 
@@ -257,10 +328,25 @@ requires-dist = [
     { name = "django", specifier = ">=6.0.1" },
     { name = "django-allauth", specifier = ">=65.14.0" },
     { name = "django-ipware", specifier = ">=7.0.1" },
+    { name = "django-user-agents", specifier = ">=0.4.0" },
     { name = "gunicorn", specifier = ">=24.1.1" },
     { name = "psycopg2-binary", specifier = ">=2.9.11" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "ruff", specifier = ">=0.8.6" },
+    { name = "sqids", specifier = ">=0.5.2" },
     { name = "whitenoise", specifier = ">=6.11.0" },
+]
+
+[[package]]
+name = "user-agents"
+version = "2.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ua-parser" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e3/e1/63c5bfb485a945010c8cbc7a52f85573561737648d36b30394248730a7bc/user-agents-2.2.0.tar.gz", hash = "sha256:d36d25178db65308d1458c5fa4ab39c9b2619377010130329f3955e7626ead26", size = 9525, upload-time = "2020-08-23T06:01:56.382Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8f/1c/20bb3d7b2bad56d881e3704131ddedbb16eb787101306887dff349064662/user_agents-2.2.0-py3-none-any.whl", hash = "sha256:a98c4dc72ecbc64812c4534108806fb0a0b3a11ec3fd1eafe807cee5b0a942e7", size = 9614, upload-time = "2020-08-23T06:01:54.047Z" },
 ]
 
 [[package]]

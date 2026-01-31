@@ -1,7 +1,7 @@
 [project]
 name = "urlshortener"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Django-based URL shortener with OAuth login and click tracking"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -9,8 +9,34 @@ dependencies = [
     "django>=6.0.1",
     "django-allauth>=65.14.0",
     "django-ipware>=7.0.1",
+    "django-user-agents>=0.4.0",
     "gunicorn>=24.1.1",
     "psycopg2-binary>=2.9.11",
     "python-dotenv>=1.2.1",
+    "ruff>=0.8.6",
+    "sqids>=0.5.2",
     "whitenoise>=6.11.0",
 ]
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "DJ",  # flake8-django
+]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "shortener", "users"]
