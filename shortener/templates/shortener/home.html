@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Home - URL Shortener{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>URL Shortener</h1>
+    <p>Create short, memorable links in seconds</p>
+
+    <div class="login-buttons">
+        <a href="{% url 'google_login' %}" class="btn btn-large">
+            Login with Google
+        </a>
+        <a href="{% url 'facebook_login' %}" class="btn btn-large">
+            Login with Facebook
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Features</h2>
+    <ul class="features-list">
+        <li>✓ Create short URLs instantly</li>
+        <li>✓ Track click statistics</li>
+        <li>✓ View browser and device information</li>
+        <li>✓ Secure OAuth login</li>
+    </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}My URLs - URL Shortener{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Create Short URL</h2>
+    <form method="post" action="{% url 'my_urls' %}">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="original_url">Enter your long URL:</label>
+            <input type="url"
+                   id="original_url"
+                   name="original_url"
+                   placeholder="https://example.com/very/long/url"
+                   required>
+        </div>
+        <button type="submit" class="btn">Shorten URL</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>My URLs</h2>
+    {% if urls %}
+        {% for url in urls %}
+        <div class="url-item">
+            <div class="url-info">
+                <div class="short-url">
+                    <a href="{{ request.scheme }}://{{ request.get_host }}/{{ url.short_code }}/" target="_blank">
+                        {{ request.get_host }}/{{ url.short_code }}/
+                    </a>
+                </div>
+                <div class="original-url">→ {{ url.original_url }}</div>
+            </div>
+            <div class="url-meta">
+                <span>Created: {{ url.created_at|date:"Y-m-d H:i" }}</span>
+                <span>Clicks: {{ url.click_count }}</span>
+                <a href="{% url 'url_stats' url.short_code %}" class="btn">View Stats</a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="empty-state">
+            No URLs yet. Create your first short URL above!
+        </p>
+    {% endif %}
+</div>
+{% endblock %}

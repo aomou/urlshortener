@@ -351,6 +351,10 @@ class ClickLog(models.Model):
 
 ## 頁面架構
 
+**語言設定：**
+- 前端頁面使用英文介面（按鈕、標籤、提示訊息等）
+- Django Admin 後台使用繁體中文（`verbose_name` 等設定為中文）
+
 ### 1. 首頁/登入頁 (`home.html`)
 - 顯示專案說明
 - Google 登入按鈕

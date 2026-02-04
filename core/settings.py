@@ -32,7 +32,10 @@ SECRET_KEY = os.getenv(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+]
 
 
 # Application definition
@@ -84,12 +87,28 @@ ACCOUNT_EMAIL_VERIFICATION = "none"  # 開發階段不驗證 email
 LOGIN_REDIRECT_URL = "/my-urls/"  # 登入後重定向
 ACCOUNT_LOGOUT_REDIRECT_URL = "/"  # 登出後重定向
 
+# Social Account Providers (OAuth)
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APP": {
+            "client_id": os.getenv("GOOGLE_CLIENT_ID", ""),
+            "secret": os.getenv("GOOGLE_SECRET_KEY", ""),
+        }
+    },
+    "facebook": {
+        "APP": {
+            "client_id": os.getenv("FACEBOOK_CLIENT_ID", ""),
+            "secret": os.getenv("FACEBOOK_SECRET_KEY", ""),
+        }
+    },
+}
+
 ROOT_URLCONF = "core.urls"
 
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -156,5 +175,6 @@ USE_TZ = True
 STATIC_URL = "static/"
 
 # Static files configuration
+STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"

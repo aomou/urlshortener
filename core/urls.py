@@ -16,8 +16,12 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # Django-allauth OAuth 登入路由
+    path("accounts/", include("allauth.urls")),
+    # Shortener app 路由（必須放在最後，因為有 catch-all 路由）
+    path("", include("shortener.urls")),
 ]

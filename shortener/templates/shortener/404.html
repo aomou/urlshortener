@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Not Found - URL Shortener{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>404 - URL Not Found</h2>
+    <p class="empty-state">
+        The short URL you're looking for doesn't exist or has been removed.
+    </p>
+    <div>
+        <a href="{% url 'home' %}" class="btn">Go to Home</a>
+    </div>
+</div>
+{% endblock %}

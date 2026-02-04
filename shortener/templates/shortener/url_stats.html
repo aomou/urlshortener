@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - URL Shortener{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>URL Statistics</h2>
+
+    <div class="stats-info">
+        <div class="stats-info-item">
+            <strong>Short URL:</strong>
+            <a href="{{ absolute_url }}" target="_blank">{{ absolute_url }}</a>
+        </div>
+        <div class="stats-info-item">
+            <strong>Original URL:</strong>
+            <span class="url-text">{{ url.original_url }}</span>
+        </div>
+        <div class="stats-info-item">
+            <strong>Created:</strong> {{ url.created_at|date:"Y-m-d H:i:s" }}
+        </div>
+        <div class="stats-info-item">
+            <strong>Total Clicks:</strong> {{ total_clicks }}
+        </div>
+    </div>
+
+    <a href="{% url 'my_urls' %}" class="btn btn-secondary">← Back to My URLs</a>
+</div>
+
+<div class="card">
+    <h2>Click History</h2>
+
+    {% if clicks %}
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>IP Address</th>
+                <th>Browser</th>
+                <th>OS</th>
+                <th>Device</th>
+                <th>Referer</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for click in clicks %}
+            <tr>
+                <td>{{ click.clicked_at|date:"Y-m-d H:i:s" }}</td>
+                <td>{{ click.ip_address }}</td>
+                <td>{{ click.browser|default:"Unknown" }}</td>
+                <td>{{ click.os|default:"Unknown" }}</td>
+                <td>{{ click.device_type|default:"Unknown" }}</td>
+                <td>
+                    {% if click.referer %}
+                        <a href="{{ click.referer }}" target="_blank" class="referer-link">
+                            {{ click.referer }}
+                        </a>
+                    {% else %}
+                        Direct
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">
+        No clicks yet. Share your short URL to start tracking!
+    </p>
+    {% endif %}
+</div>
+{% endblock %}
