@@ -1,3 +1,362 @@
-from django.test import TestCase
+"""
+Tests for shortener app
+"""
 
-# Create your tests here.
+from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.test import Client, RequestFactory, TestCase
+from django.urls import reverse
+
+from .exceptions import AccessDeniedError, UrlNotFoundError
+from .models import ClickLog, URLModel
+from .services import AnalyticsService, URLService
+
+
+class URLServiceTestCase(TestCase):
+    """URLService 測試"""
+
+    def setUp(self):
+        """建立測試資料"""
+        self.user1 = User.objects.create_user(username="user1", password="pass123")
+        self.user2 = User.objects.create_user(username="user2", password="pass123")
+
+    def test_create_short_url_success(self):
+        """測試成功建立短網址"""
+        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
+
+        self.assertIsNotNone(url_obj.id)
+        self.assertIsNotNone(url_obj.short_code)
+        self.assertEqual(url_obj.original_url, "https://www.example.com")
+        self.assertEqual(url_obj.user, self.user1)
+        self.assertGreaterEqual(len(url_obj.short_code), 6)  # min_length=6
+
+    def test_create_short_url_invalid_format(self):
+        """測試無效的 URL 格式"""
+        with self.assertRaises(ValidationError):
+            URLService.create_short_url(self.user1, "not-a-valid-url")
+
+        with self.assertRaises(ValidationError):
+            URLService.create_short_url(self.user1, "")
+
+    def test_get_url_by_code_success(self):
+        """測試成功根據短碼取得 URL"""
+        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
+        short_code = url_obj.short_code
+
+        # 使用短碼查詢
+        retrieved_url = URLService.get_url_by_code(short_code)
+
+        self.assertEqual(retrieved_url.id, url_obj.id)
+        self.assertEqual(retrieved_url.original_url, url_obj.original_url)
+
+    def test_get_url_by_code_invalid(self):
+        """測試無效的短碼"""
+        with self.assertRaises(UrlNotFoundError):
+            URLService.get_url_by_code("invalid_code")
+
+        with self.assertRaises(UrlNotFoundError):
+            URLService.get_url_by_code("")
+
+    def test_get_url_by_code_not_found(self):
+        """測試不存在的短碼"""
+        # 建立有效格式但不存在的短碼
+        from sqids import Sqids
+
+        sqids = Sqids(min_length=6)
+        fake_code = sqids.encode([99999, 99999])  # 不存在的 user_id 和 url_id
+
+        with self.assertRaises(UrlNotFoundError):
+            URLService.get_url_by_code(fake_code)
+
+    def test_get_user_urls(self):
+        """測試取得使用者的 URL 列表"""
+        # 建立多個 URL
+        url1 = URLService.create_short_url(self.user1, "https://example1.com")
+        url2 = URLService.create_short_url(self.user1, "https://example2.com")
+        url3 = URLService.create_short_url(self.user2, "https://example3.com")
+
+        # 查詢 user1 的 URL
+        user1_urls = URLService.get_user_urls(self.user1)
+
+        self.assertEqual(user1_urls.count(), 2)
+        self.assertIn(url1, user1_urls)
+        self.assertIn(url2, user1_urls)
+        self.assertNotIn(url3, user1_urls)
+
+    def test_get_user_urls_with_stats(self):
+        """測試取得含統計的 URL 列表"""
+        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
+
+        # 建立一些點擊記錄
+        factory = RequestFactory()  # 建立 Django request 物件
+        request = factory.get(f"/{url_obj.short_code}/")
+        AnalyticsService.record_click(url_obj, request)
+        AnalyticsService.record_click(url_obj, request)
+
+        # 查詢含統計的 URL 列表
+        urls = URLService.get_user_urls_with_stats(self.user1)
+
+        self.assertEqual(urls.count(), 1)
+        self.assertEqual(urls[0].click_count, 2)
+
+    def test_verify_owner_success(self):
+        """測試擁有者驗證通過"""
+        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
+
+        # 不應該拋出異常
+        try:
+            URLService.verify_owner(url_obj, self.user1)  # 成功時不會有例外
+        except AccessDeniedError:
+            self.fail("verify_owner raised AccessDeniedError unexpectedly")
+
+    def test_verify_owner_denied(self):
+        """測試非擁有者被拒絕"""
+        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
+
+        with self.assertRaises(AccessDeniedError):
+            URLService.verify_owner(url_obj, self.user2)
+
+    def test_different_users_same_url(self):
+        """測試不同使用者縮同一網址產生不同短碼"""
+        url1 = URLService.create_short_url(self.user1, "https://www.example.com")
+        url2 = URLService.create_short_url(self.user2, "https://www.example.com")
+
+        self.assertNotEqual(url1.short_code, url2.short_code)
+
+
+class AnalyticsServiceTestCase(TestCase):
+    """AnalyticsService 測試"""
+
+    def setUp(self):
+        """建立測試資料"""
+        self.user = User.objects.create_user(username="testuser", password="pass123")
+        self.url_obj = URLService.create_short_url(self.user, "https://www.example.com")
+        self.factory = RequestFactory()
+
+    def test_record_click_basic(self):
+        """測試基本點擊記錄"""
+        request = self.factory.get(f"/{self.url_obj.short_code}/")
+        request.META["REMOTE_ADDR"] = "192.168.1.100"
+
+        click_log = AnalyticsService.record_click(self.url_obj, request)
+
+        self.assertIsNotNone(click_log.id)
+        self.assertEqual(click_log.url, self.url_obj)
+        self.assertEqual(click_log.ip_address, "192.168.1.100")
+        self.assertIsNotNone(click_log.clicked_at)
+
+    def test_record_click_with_forwarded_ip(self):
+        """測試從 X-Forwarded-For 取得 IP"""
+        request = self.factory.get(f"/{self.url_obj.short_code}/")
+        request.META["HTTP_X_FORWARDED_FOR"] = "203.0.113.1, 192.168.1.1"
+        request.META["REMOTE_ADDR"] = "192.168.1.100"
+
+        click_log = AnalyticsService.record_click(self.url_obj, request)
+
+        # 應該取第一個 IP
+        self.assertEqual(click_log.ip_address, "203.0.113.1")
+
+    def test_record_click_with_user_agent(self):
+        """測試 User-Agent 解析"""
+        request = self.factory.get(f"/{self.url_obj.short_code}/")
+        request.META["REMOTE_ADDR"] = "192.168.1.100"
+        request.META["HTTP_USER_AGENT"] = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        )
+
+        click_log = AnalyticsService.record_click(self.url_obj, request)
+
+        # 應該有解析瀏覽器和 OS 資訊
+        self.assertIsNotNone(click_log.browser)
+        self.assertIsNotNone(click_log.os)
+        self.assertIsNotNone(click_log.device_type)
+
+    def test_record_click_with_referer(self):
+        """測試記錄 Referer"""
+        request = self.factory.get(f"/{self.url_obj.short_code}/")
+        request.META["REMOTE_ADDR"] = "192.168.1.100"
+        request.META["HTTP_REFERER"] = "https://www.google.com"
+
+        click_log = AnalyticsService.record_click(self.url_obj, request)
+
+        self.assertEqual(click_log.referer, "https://www.google.com")
+
+    def test_get_url_stats(self):
+        """測試取得統計資料"""
+        # 建立多筆點擊記錄
+        request = self.factory.get(f"/{self.url_obj.short_code}/")
+        request.META["REMOTE_ADDR"] = "192.168.1.100"
+
+        AnalyticsService.record_click(self.url_obj, request)
+        AnalyticsService.record_click(self.url_obj, request)
+        AnalyticsService.record_click(self.url_obj, request)
+
+        stats = AnalyticsService.get_url_stats(self.url_obj)
+
+        self.assertEqual(stats["total_clicks"], 3)
+        self.assertEqual(len(stats["clicks"]), 3)
+        self.assertIn("clicked_at", stats["clicks"][0])
+        self.assertIn("ip_address", stats["clicks"][0])
+
+    def test_anonymize_ip_ipv4(self):
+        """測試 IPv4 匿名化"""
+        ip = "192.168.1.100"
+        anonymized = AnalyticsService.anonymize_ip(ip)
+
+        self.assertEqual(anonymized, "192.168.1.0")
+
+    def test_anonymize_ip_ipv6(self):
+        """測試 IPv6 匿名化"""
+        ip = "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+        anonymized = AnalyticsService.anonymize_ip(ip)
+
+        # 應該只保留前 4 段
+        self.assertTrue(anonymized.startswith("2001:0db8:85a3:0000::"))
+
+    def test_get_url_stats_anonymized_ip(self):
+        """測試統計資料中的 IP 已匿名化"""
+        request = self.factory.get(f"/{self.url_obj.short_code}/")
+        request.META["REMOTE_ADDR"] = "192.168.1.100"
+
+        AnalyticsService.record_click(self.url_obj, request)
+        stats = AnalyticsService.get_url_stats(self.url_obj)
+
+        # 統計資料中的 IP 應該是匿名化的
+        self.assertEqual(stats["clicks"][0]["ip_address"], "192.168.1.0")
+
+
+class ViewTestCase(TestCase):
+    """View 層測試"""
+
+    def setUp(self):
+        """建立測試資料"""
+        self.user1 = User.objects.create_user(username="user1", password="pass123")
+        self.user2 = User.objects.create_user(username="user2", password="pass123")
+        self.client = Client()
+
+    def test_home_view(self):
+        """測試首頁"""
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "URL Shortener")
+
+    def test_my_urls_view_requires_login(self):
+        """測試我的網址頁需要登入"""
+        response = self.client.get(reverse("my_urls"))
+
+        # 應該重定向到登入頁
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response.url)
+
+    def test_my_urls_view_authenticated(self):
+        """測試已登入使用者可以訪問我的網址頁"""
+        self.client.login(username="user1", password="pass123")
+        response = self.client.get(reverse("my_urls"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "My URLs")
+
+    def test_create_short_url(self):
+        """測試建立短網址"""
+        self.client.login(username="user1", password="pass123")
+
+        response = self.client.post(
+            reverse("my_urls"), {"original_url": "https://www.example.com"}
+        )
+
+        # 應該重定向回我的網址頁
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("my_urls"))
+
+        # 確認 URL 已建立
+        urls = URLModel.objects.filter(user=self.user1)
+        self.assertEqual(urls.count(), 1)
+        self.assertEqual(urls[0].original_url, "https://www.example.com")
+
+    def test_create_short_url_invalid(self):
+        """測試建立無效的短網址"""
+        self.client.login(username="user1", password="pass123")
+
+        response = self.client.post(
+            reverse("my_urls"), {"original_url": "not-a-valid-url"}
+        )
+
+        # 應該顯示錯誤訊息
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Invalid URL format")
+
+    def test_redirect_view_success(self):
+        """測試短網址重定向"""
+        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
+
+        response = self.client.get(reverse("redirect", args=[url_obj.short_code]))
+
+        # 應該是 302 重定向
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "https://www.example.com")
+
+        # 確認點擊已記錄
+        self.assertEqual(ClickLog.objects.filter(url=url_obj).count(), 1)
+
+    def test_redirect_view_not_found(self):
+        """測試不存在的短網址"""
+        response = self.client.get(reverse("redirect", args=["invalid_code"]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_url_stats_view_requires_login(self):
+        """測試統計頁需要登入"""
+        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
+
+        response = self.client.get(reverse("url_stats", args=[url_obj.short_code]))
+
+        # 應該重定向到登入頁
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response.url)
+
+    def test_url_stats_view_owner_access(self):
+        """測試擁有者可以訪問統計頁"""
+        self.client.login(username="user1", password="pass123")
+        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
+
+        response = self.client.get(reverse("url_stats", args=[url_obj.short_code]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "URL Statistics")
+        self.assertContains(response, url_obj.original_url)
+
+    def test_url_stats_view_non_owner_denied(self):
+        """測試非擁有者無法訪問統計頁"""
+        self.client.login(username="user2", password="pass123")
+        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
+
+        response = self.client.get(reverse("url_stats", args=[url_obj.short_code]))
+
+        # 應該回傳 403 Forbidden
+        self.assertEqual(response.status_code, 403)
+
+    def test_url_stats_view_not_found(self):
+        """測試統計頁不存在的短碼"""
+        self.client.login(username="user1", password="pass123")
+
+        response = self.client.get(reverse("url_stats", args=["invalid_code"]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_user_isolation(self):
+        """測試使用者資料隔離"""
+        self.client.login(username="user1", password="pass123")
+
+        # user1 建立 URL
+        URLService.create_short_url(self.user1, "https://example1.com")
+
+        # user2 建立 URL
+        URLService.create_short_url(self.user2, "https://example2.com")
+
+        # user1 訪問我的網址頁
+        response = self.client.get(reverse("my_urls"))
+
+        # 應該只看到自己的 URL
+        self.assertContains(response, "example1.com")
+        self.assertNotContains(response, "example2.com")
