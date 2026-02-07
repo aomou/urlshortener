@@ -282,9 +282,21 @@ class ViewTestCase(TestCase):
             reverse("my_urls"), {"original_url": "not-a-valid-url"}
         )
 
-        # 應該顯示錯誤訊息
+        # 應該重定向回我的網址頁
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("my_urls"))
+
+        # Follow redirect 並檢查錯誤訊息
+        response = self.client.get(response.url)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Invalid URL format")
+        # 檢查 messages 中是否包含錯誤訊息
+        messages_list = list(response.context["messages"])
+        self.assertTrue(
+            any(
+                "Invalid URL format" in str(m) or "Enter a valid URL" in str(m)
+                for m in messages_list
+            )
+        )
 
     def test_redirect_view_success(self):
         """測試短網址重定向"""
@@ -333,8 +345,20 @@ class ViewTestCase(TestCase):
 
         response = self.client.get(reverse("url_stats", args=[url_obj.short_code]))
 
-        # 應該回傳 403 Forbidden
-        self.assertEqual(response.status_code, 403)
+        # 應該重定向回我的網址頁
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("my_urls"))
+
+        # Follow redirect 並檢查錯誤訊息
+        response = self.client.get(response.url)
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context["messages"])
+        self.assertTrue(
+            any(
+                "You do not have permission to view this URL" in str(m)
+                for m in messages_list
+            )
+        )
 
     def test_url_stats_view_not_found(self):
         """測試統計頁不存在的短碼"""
@@ -342,7 +366,17 @@ class ViewTestCase(TestCase):
 
         response = self.client.get(reverse("url_stats", args=["invalid_code"]))
 
-        self.assertEqual(response.status_code, 404)
+        # 應該重定向回我的網址頁
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("my_urls"))
+
+        # Follow redirect 並檢查錯誤訊息
+        response = self.client.get(response.url)
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context["messages"])
+        self.assertTrue(
+            any("Short URL not found" in str(m) for m in messages_list)
+        )
 
     def test_user_isolation(self):
         """測試使用者資料隔離"""
