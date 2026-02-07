@@ -21,6 +21,7 @@ main {
 
 .container {
     max-width: 1000px;
+    width: 100%;
     margin: 0 auto;
     padding: 20px;
 }
@@ -61,6 +62,7 @@ header h1 a:hover {
 
 .logout-form {
     display: inline;
+    margin: 0;
 }
 
 /* Buttons */
@@ -74,6 +76,9 @@ header h1 a:hover {
     border: none;
     cursor: pointer;
     font-size: 14px;
+    font-family: inherit;
+    line-height: 1.5;
+    vertical-align: middle;
     transition: background 0.3s;
 }
 
@@ -123,7 +128,9 @@ header h1 a:hover {
     padding: 30px;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
+    margin: 0 auto 20px;    
+    max-width: 80%;
+    overflow: hidden;
 }
 
 .card h2 {
@@ -188,23 +195,30 @@ table tr:hover {
     border-radius: 8px;
     margin-bottom: 15px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    max-width: 100%;
 }
 
 .url-item .url-info {
     margin-bottom: 10px;
+    min-width: 0;
 }
 
 .url-item .short-url {
     font-size: 18px;
     font-weight: 600;
     color: #3498db;
-    word-break: break-all;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
 }
 
 .url-item .original-url {
     color: #7f8c8d;
     font-size: 14px;
-    word-break: break-all;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    max-width: 100%;
 }
 
 .url-item .url-meta {
@@ -299,11 +313,64 @@ footer {
     margin-top: 40px;
 }
 
+/* Login page specific styles */
+.login-note {
+    margin-top: 30px;
+    font-size: 14px;
+    color: #7f8c8d;
+    text-align: center;
+}
+
+.admin-login-link {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.admin-login-link a {
+    color: #95a5a6;
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.admin-login-link a:hover {
+    color: #7f8c8d;
+    text-decoration: underline;
+}
+
+/* Privacy note */
+.privacy-note {
+    margin-bottom: 10px;
+    font-size: 15px;
+    color: #95a5a6;
+    font-style: italic;
+}
+
+/* OAuth notice */
+.oauth-notice {
+    margin-top: 30px;
+    padding: 20px;
+    text-align: center;
+}
+
+.oauth-notice .notice-text {
+    margin-bottom: 15px;
+    color: #856404;
+}
+
+.btn-small {
+    padding: 8px 16px;
+    font-size: 13px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     header .container {
         flex-direction: column;
         gap: 15px;
+    }
+
+    .card {
+        max-width: 100%;
     }
 
     .user-info {

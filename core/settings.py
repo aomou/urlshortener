@@ -86,20 +86,37 @@ SITE_ID = 1
 ACCOUNT_EMAIL_VERIFICATION = "none"  # 開發階段不驗證 email
 LOGIN_REDIRECT_URL = "/my-urls/"  # 登入後重定向
 ACCOUNT_LOGOUT_REDIRECT_URL = "/"  # 登出後重定向
+SOCIALACCOUNT_ONLY = True  # 只允許第三方登入，禁用用戶名/密碼登入
+SOCIALACCOUNT_AUTO_SIGNUP = True  # 自動註冊，不需要手動確認
+SOCIALACCOUNT_QUERY_EMAIL = True  # 向 OAuth 提供者查詢 email
+SOCIALACCOUNT_EMAIL_REQUIRED = True  # 要求第三方登入必須提供 email
 
 # Social Account Providers (OAuth)
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
+        "SCOPE": [
+            "profile",
+            "email",
+        ],
+        "AUTH_PARAMS": {
+            "access_type": "online",
+        },
         "APP": {
             "client_id": os.getenv("GOOGLE_CLIENT_ID", ""),
             "secret": os.getenv("GOOGLE_SECRET_KEY", ""),
-        }
+        },
     },
     "facebook": {
+        "SCOPE": [
+            "email",
+            "public_profile",
+        ],
+        "METHOD": "oauth2",
+        "VERIFIED_EMAIL": False,
         "APP": {
             "client_id": os.getenv("FACEBOOK_CLIENT_ID", ""),
             "secret": os.getenv("FACEBOOK_SECRET_KEY", ""),
-        }
+        },
     },
 }
 
