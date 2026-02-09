@@ -19,6 +19,11 @@ class URLModel(models.Model):
         verbose_name = "短網址"
         verbose_name_plural = "短網址"
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "original_url"], name="unique_user_url"
+            )
+        ]
 
     def __str__(self):
         return f"{self.short_code} -> {self.original_url}"

@@ -39,10 +39,20 @@ def my_urls_view(request):
             messages.error(request, "Please enter a URL")
         else:
             try:
-                # 呼叫 Service 建立短網址
-                url_obj = URLService.create_short_url(request.user, original_url)
+                # 建立或回傳已建立的短網址
+                url_obj, created = URLService.get_or_create_short_url(
+                    request.user, original_url
+                )
                 short_url = f"{request.build_absolute_uri('/')}{url_obj.short_code}/"
-                messages.success(request, f"Short URL created: {short_url}")
+
+                # 根據 created 旗標顯示不同訊息
+                if created:
+                    messages.success(request, f"Short URL created: {short_url}")
+                else:
+                    messages.warning(
+                        request, f"You've already shortened this URL: {short_url}"
+                    )
+
             except ValidationError as e:
                 messages.error(request, str(e))
 

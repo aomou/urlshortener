@@ -156,6 +156,11 @@ graph TB
   - 驗證長網址格式。
   - 建立 URLModel 紀錄。
   - 呼叫 Sqids 根據 user_id 與 url_id 生成唯一短碼並更新。
+- **取得或建立短網址 (`get_or_create_short_url`)**：
+  - 檢查使用者是否已為相同 URL 建立過短網址。
+  - 若已存在，返回現有短網址與 `created=False` 旗標。
+  - 若不存在，呼叫 `create_short_url` 建立新短網址與 `created=True` 旗標。
+  - 返回 tuple `(url_obj, created)` 供 View 層區分情境。
 - 解析短網址 (`get_url_by_code`)：
   - 執行 Sqids 解碼。
   - 查詢資料庫取得 URLModel 實例。
@@ -193,6 +198,7 @@ graph TB
 - 系統產生唯一短網址
 - 短網址格式：`https://your-domain.com/{short_code}`
 - 不同使用者縮同一網址會產生不同短碼（資料隔離、隱私優先）
+- **重複檢測**：同一使用者重複提交相同長網址時，返回已存在的短網址並顯示警告訊息，不建立新記錄
 
 ### 3. 重定向功能
 - 訪問短網址時，302 重定向至原網址
@@ -242,6 +248,11 @@ class URLModel(models.Model):
 **欄位說明**：
 - `short_code` - 使用 Sqids 從 `user.id` 和 `url.id` 編碼生成
 - `db_index=True` - 在 `short_code` 建立索引以加速查詢
+
+**資料完整性約束**（選用，建議）：
+- 複合唯一性約束 `(user, original_url)` - 防止同一使用者重複建立相同 URL 的短網址
+- 自動建立複合索引，提升重複檢測查詢效能
+- 防止併發請求產生重複記錄
 
 **未來可擴展欄位**（目前不實作）：
 - `title` - 網頁標題（自動抓取或使用者自訂）
@@ -374,8 +385,12 @@ class ClickLog(models.Model):
 - **功能**：顯示當前使用者建立的所有短網址與新增表單
 - **權限**：需登入（Login Required）
 - **查詢邏輯**：
-  - 呼叫 `URLService.get_user_urls(request.user)` 取得該使用者的 URL 列表
-  - 若為 POST 請求，呼叫 `URLService.create_short_url(request.user, original_url)` 建立新網址
+  - 呼叫 `URLService.get_user_urls_with_stats(request.user)` 取得該使用者的 URL 列表（含點擊統計）
+  - 若為 POST 請求，呼叫 `URLService.get_or_create_short_url(request.user, original_url)` 建立或取得短網址
+- **訊息回饋**：
+  - 新建立短網址：綠色成功訊息（`messages.success`）
+  - 重複 URL：黃色警告訊息（`messages.warning`），提示已存在並顯示該短網址
+  - 驗證失敗：紅色錯誤訊息（`messages.error`）
 - **錯誤處理**：未登入時重定向至登入頁，驗證失敗時由 Service 拋出異常，View 負責將錯誤訊息傳回模板顯示
 
 ### 3. 統計詳情頁 (`url_stats.html`)

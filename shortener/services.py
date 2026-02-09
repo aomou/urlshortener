@@ -53,6 +53,46 @@ class URLService:
         return url_obj
 
     @staticmethod
+    def get_or_create_short_url(user, original_url):
+        """
+        取得或建立短網址（防止重複）
+
+        檢查使用者是否已經為相同的 URL 建立過短網址。
+        如果已存在，返回現有短網址；否則建立新的短網址。
+
+        Args:
+            user: Django User 物件
+            original_url: 原始網址
+
+        Returns:
+            tuple: (url_obj, created)
+                - url_obj: URLModel 實例
+                - created: bool - True 表示新建立，False 表示已存在
+
+        Raises:
+            ValidationError: URL 格式不正確
+        """
+        # 驗證 URL 格式
+        validator = URLValidator()
+        try:
+            validator(original_url)
+        except ValidationError:
+            raise ValidationError("Invalid URL format") from None
+
+        # 查詢是否已存在相同的 (user, original_url) 組合
+        existing_url = URLModel.objects.filter(
+            user=user, original_url=original_url
+        ).first()
+
+        # 如果已存在，返回現有 URL
+        if existing_url:
+            return (existing_url, False)
+
+        # 如果不存在，呼叫原有的 create_short_url 建立新 URL
+        new_url = URLService.create_short_url(user, original_url)
+        return (new_url, True)
+
+    @staticmethod
     def get_url_by_code(code):
         """
         根據短碼取得 URL 物件

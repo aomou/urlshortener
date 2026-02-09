@@ -123,6 +123,69 @@ class URLServiceTestCase(TestCase):
 
         self.assertNotEqual(url1.short_code, url2.short_code)
 
+    def test_get_or_create_short_url_new(self):
+        """測試 get_or_create_short_url 建立新 URL"""
+        url_obj, created = URLService.get_or_create_short_url(
+            self.user1, "https://www.example.com"
+        )
+
+        self.assertTrue(created)
+        self.assertIsNotNone(url_obj.id)
+        self.assertIsNotNone(url_obj.short_code)
+        self.assertEqual(url_obj.original_url, "https://www.example.com")
+        self.assertEqual(url_obj.user, self.user1)
+
+    def test_get_or_create_short_url_existing(self):
+        """測試 get_or_create_short_url 返回已存在的 URL"""
+        # 第一次建立
+        url1, created1 = URLService.get_or_create_short_url(
+            self.user1, "https://www.example.com"
+        )
+        self.assertTrue(created1)
+
+        # 第二次應該返回相同的 URL
+        url2, created2 = URLService.get_or_create_short_url(
+            self.user1, "https://www.example.com"
+        )
+        self.assertFalse(created2)
+        self.assertEqual(url1.id, url2.id)
+        self.assertEqual(url1.short_code, url2.short_code)
+
+        # 確認資料庫中只有一筆記錄
+        urls = URLModel.objects.filter(
+            user=self.user1, original_url="https://www.example.com"
+        )
+        self.assertEqual(urls.count(), 1)
+
+    def test_get_or_create_short_url_different_users(self):
+        """測試不同使用者可以縮短相同 URL"""
+        url1, created1 = URLService.get_or_create_short_url(
+            self.user1, "https://www.example.com"
+        )
+        url2, created2 = URLService.get_or_create_short_url(
+            self.user2, "https://www.example.com"
+        )
+
+        # 兩個都應該是新建立的
+        self.assertTrue(created1)
+        self.assertTrue(created2)
+
+        # ID 和短碼應該不同
+        self.assertNotEqual(url1.id, url2.id)
+        self.assertNotEqual(url1.short_code, url2.short_code)
+
+        # 資料庫中應該有兩筆記錄
+        total_urls = URLModel.objects.filter(original_url="https://www.example.com")
+        self.assertEqual(total_urls.count(), 2)
+
+    def test_get_or_create_short_url_invalid_format(self):
+        """測試 get_or_create_short_url 拒絕無效 URL"""
+        with self.assertRaises(ValidationError):
+            URLService.get_or_create_short_url(self.user1, "not-a-valid-url")
+
+        with self.assertRaises(ValidationError):
+            URLService.get_or_create_short_url(self.user1, "")
+
 
 class AnalyticsServiceTestCase(TestCase):
     """AnalyticsService 測試"""
