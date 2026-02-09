@@ -23,10 +23,17 @@
     <h2>My URLs</h2>
     {% if urls %}
         {% for url in urls %}
-        <div class="url-item">
+        <div class="url-item {% if not url.is_active %}url-inactive{% endif %}">
+            {% if url.is_active %}
+                <span class="status-badge status-active">Active</span>
+            {% else %}
+                <span class="status-badge status-inactive">Inactive</span>
+            {% endif %}
             <div class="url-info">
                 <div class="short-url">
-                    <a href="{{ request.scheme }}://{{ request.get_host }}/{{ url.short_code }}/" target="_blank">
+                    <a href="{{ request.scheme }}://{{ request.get_host }}/{{ url.short_code }}/"
+                       target="_blank"
+                       {% if not url.is_active %}class="link-disabled"{% endif %}>
                         {{ request.get_host }}/{{ url.short_code }}/
                     </a>
                 </div>
@@ -35,7 +42,17 @@
             <div class="url-meta">
                 <span>Created: {{ url.created_at|date:"Y-m-d H:i" }}</span>
                 <span>Clicks: {{ url.click_count }}</span>
-                <a href="{% url 'url_stats' url.short_code %}" class="btn">View Stats</a>
+                <div class="url-actions">
+                    <a href="{% url 'url_stats' url.short_code %}" class="btn btn-small">Stats</a>
+                    <form method="post" action="{% url 'toggle_url' url.id %}" style="display: inline;">
+                        {% csrf_token %}
+                        {% if url.is_active %}
+                            <button type="submit" class="btn btn-warning btn-small">Disable</button>
+                        {% else %}
+                            <button type="submit" class="btn btn-success btn-small">Enable</button>
+                        {% endif %}
+                    </form>
+                </div>
             </div>
         </div>
         {% endfor %}

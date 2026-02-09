@@ -11,6 +11,7 @@ class URLModel(models.Model):
     )
     original_url = models.URLField(max_length=2048, verbose_name="原始網址")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
+    is_active = models.BooleanField(default=True, verbose_name="Active")
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="urls", verbose_name="擁有者"
     )

@@ -199,6 +199,11 @@ graph TB
 - 短網址格式：`https://your-domain.com/{short_code}`
 - 不同使用者縮同一網址會產生不同短碼（資料隔離、隱私優先）
 - **重複檢測**：同一使用者重複提交相同長網址時，返回已存在的短網址並顯示警告訊息，不建立新記錄
+- **Toggle 功能**：使用者可以暫時停用/啟用短網址
+  - 停用的短網址訪問時返回 404
+  - 在我的網址頁面顯示 Activate/Deactivate 按鈕
+  - 顯示啟用狀態標籤（Active/Inactive）
+
 
 ### 3. 重定向功能
 - 訪問短網址時，302 重定向至原網址
@@ -242,12 +247,14 @@ class URLModel(models.Model):
     short_code = models.CharField(max_length=20, unique=True, db_index=True)
     original_url = models.URLField(max_length=2048)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 ```
 
 **欄位說明**：
 - `short_code` - 使用 Sqids 從 `user.id` 和 `url.id` 編碼生成
 - `db_index=True` - 在 `short_code` 建立索引以加速查詢
+- `is_active` - 短網址啟用狀態，預設為 True。停用的短網址將返回 404
 
 **資料完整性約束**（選用，建議）：
 - 複合唯一性約束 `(user, original_url)` - 防止同一使用者重複建立相同 URL 的短網址
@@ -256,7 +263,6 @@ class URLModel(models.Model):
 
 **未來可擴展欄位**（目前不實作）：
 - `title` - 網頁標題（自動抓取或使用者自訂）
-- `is_active` - 停用功能
 
 ### ClickLog（自定義）
 ```python
@@ -349,11 +355,13 @@ class ClickLog(models.Model):
 | `/accounts/*` | GET/POST | OAuth 登入流程 | 公開 |
 | `/my-urls/` | GET | 我的網址列表頁 | 需登入 |
 | `/my-urls/` | POST | 建立短網址 | 需登入 |
+| `/my-urls/toggle/<int:url_id>/` | POST | 切換 URL 啟用/停用狀態 | 需登入（僅限擁有者） |
 | `/stats/<code>/` | GET | 統計詳情頁 | 需登入（僅限擁有者） |
 | `/<code>/` | GET | 短網址重定向 | 公開 |
 
 **注意事項：**
 - `/my-urls/` 同時處理 GET（顯示列表）和 POST（建立短網址）請求
+- `/my-urls/toggle/<int:url_id>/` 為 POST-only endpoint，用於切換 URL 啟用狀態
 - 短網址重定向路由（`/<code>/`）必須放在路由配置的最後，避免攔截其他路由
 - OAuth 相關路由由 django-allauth 自動處理（`/accounts/*`）
 - 所有需登入的頁面使用 `@login_required` 或等效機制保護
@@ -376,10 +384,12 @@ class ClickLog(models.Model):
 - 表單：輸入長網址、提交按鈕
 - 列表：只顯示當前使用者建立的 URL，按建立時間倒序排列
   - 短網址連結（可複製）
+  - 啟用狀態標籤（Active/Inactive）
   - 原始網址
   - 建立時間
   - 點擊次數
   - 查看統計按鈕
+  - **Toggle 按鈕**（Activate/Deactivate）
 
 **View 行為：**
 - **功能**：顯示當前使用者建立的所有短網址與新增表單
@@ -390,6 +400,7 @@ class ClickLog(models.Model):
 - **訊息回饋**：
   - 新建立短網址：綠色成功訊息（`messages.success`）
   - 重複 URL：黃色警告訊息（`messages.warning`），提示已存在並顯示該短網址
+  - Toggle 成功：綠色成功訊息，顯示 activated/deactivated 狀態
   - 驗證失敗：紅色錯誤訊息（`messages.error`）
 - **錯誤處理**：未登入時重定向至登入頁，驗證失敗時由 Service 拋出異常，View 負責將錯誤訊息傳回模板顯示
 

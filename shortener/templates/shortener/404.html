@@ -1,15 +1,45 @@
-{% extends "base.html" %}
-
-{% block title %}Not Found - URL Shortener{% endblock %}
-
-{% block content %}
-<div class="card">
-    <h2>404 - URL Not Found</h2>
-    <p class="empty-state">
-        The short URL you're looking for doesn't exist or has been removed.
-    </p>
-    <div>
-        <a href="{% url 'home' %}" class="btn">Go to Home</a>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Expired</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #ffffff;
+            color: #000000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+        }
+        h1 {
+            font-size: 48px;
+            font-weight: 300;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 18px;
+            color: #666;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Link Expired</h1>
+        <p>This short URL is no longer available.</p>
     </div>
-</div>
-{% endblock %}
+</body>
+</html>

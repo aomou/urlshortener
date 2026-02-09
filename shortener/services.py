@@ -93,12 +93,13 @@ class URLService:
         return (new_url, True)
 
     @staticmethod
-    def get_url_by_code(code):
+    def get_url_by_code(code, check_active=True):
         """
         根據短碼取得 URL 物件
 
         Args:
             code: 短網址代碼
+            check_active: 是否檢查 URL 啟用狀態（預設 True）
 
         Returns:
             URLModel 實例
@@ -116,6 +117,11 @@ class URLService:
 
             # 查詢資料庫
             url_obj = URLModel.objects.get(id=url_id, user_id=user_id)
+
+            # 檢查 URL 是否啟用（僅在 check_active=True 時）
+            if check_active and not url_obj.is_active:
+                raise UrlNotFoundError(f"URL is inactive: {code}")
+
             return url_obj
 
         except (ValueError, URLModel.DoesNotExist):
@@ -150,6 +156,36 @@ class URLService:
             .annotate(click_count=Count("clicks"))  # 使用 annotate 避免 N+1 查詢問題
             .order_by("-created_at")
         )
+
+    @staticmethod
+    def toggle_url_status(url_id, user):
+        """
+        切換 URL 啟用狀態
+
+        Args:
+            url_id: URL 物件的 ID
+            user: Django User 物件
+
+        Returns:
+            URLModel 實例（已更新狀態）
+
+        Raises:
+            UrlNotFoundError: URL 不存在
+            AccessDeniedError: 使用者非擁有者
+        """
+        try:
+            url_obj = URLModel.objects.get(id=url_id)
+        except URLModel.DoesNotExist:
+            raise UrlNotFoundError(f"URL not found: {url_id}") from None
+
+        # 驗證擁有者
+        URLService.verify_owner(url_obj, user)
+
+        # 切換狀態
+        url_obj.is_active = not url_obj.is_active
+        url_obj.save()
+
+        return url_obj
 
     @staticmethod
     def verify_owner(url_obj, user):

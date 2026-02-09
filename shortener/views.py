@@ -66,6 +66,33 @@ def my_urls_view(request):
 
 
 @login_required
+def toggle_url_view(request, url_id):
+    """
+    切換 URL 啟用/停用狀態
+
+    POST-only endpoint
+    """
+    if request.method != "POST":
+        messages.error(request, "Invalid request method")
+        return redirect("my_urls")
+
+    try:
+        url_obj = URLService.toggle_url_status(url_id, request.user)
+
+        status_text = "enabled" if url_obj.is_active else "disabled"
+        messages.success(
+            request, f"URL {url_obj.short_code} has been {status_text}"
+        )
+
+    except UrlNotFoundError:
+        messages.error(request, "Short URL not found")
+    except AccessDeniedError:
+        messages.error(request, "You do not have permission to modify this URL")
+
+    return redirect("my_urls")
+
+
+@login_required
 def url_stats_view(request, code):
     """
     統計詳情頁
@@ -74,8 +101,8 @@ def url_stats_view(request, code):
     僅限擁有者訪問
     """
     try:
-        # 取得 URL 物件
-        url_obj = URLService.get_url_by_code(code)
+        # 取得 URL 物件（不檢查 is_active，擁有者應該能查看停用 URL 的統計）
+        url_obj = URLService.get_url_by_code(code, check_active=False)
 
         # 驗證擁有者
         URLService.verify_owner(url_obj, request.user)

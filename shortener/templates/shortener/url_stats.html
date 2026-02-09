@@ -4,6 +4,11 @@
 
 {% block content %}
 <div class="card">
+    {% if url.is_active %}
+        <span class="status-badge status-active">Active</span>
+    {% else %}
+        <span class="status-badge status-inactive">Inactive</span>
+    {% endif %}
     <h2>URL Statistics</h2>
 
     <div class="stats-info">
