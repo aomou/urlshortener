@@ -408,10 +408,64 @@ footer {
     background: #229954;
 }
 
+/* Filter Form */
+.filter-form {
+    padding: 0 0 20px 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.filter-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.filter-form .form-group {
+    margin-bottom: 0;
+    flex: 1 1 auto;
+}
+
+.filter-form label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 13px;
+    color: #7f8c8d;
+    font-weight: normal;
+}
+
+.filter-form select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+}
+
+.filter-form select:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 12px;
+    flex: 0 0 auto;
+}
+
+.filter-form .btn {
+    white-space: nowrap;
+    text-align: center;
+}
+
 /* Inactive URL Styling */
 .url-item.url-inactive {
     background: #f8f9fa;
     border: 1px solid #e9ecef;
+    box-shadow: none;
 }
 
 .url-item.url-inactive .link-disabled {
@@ -444,10 +498,55 @@ footer {
     }
 
     .user-info {
-        flex-direction: column;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .user-info span {
+        width: 100%;
+        text-align: center;
+        margin-bottom: 5px;
+    }
+
+    .user-info .btn {
+        width: 120px;
+        text-align: center;
+    }
+
+    .user-info .logout-form {
+        width: auto;
+    }
+
+    .user-info .logout-form .btn {
+        width: 120px;
+        text-align: center;
     }
 
     .login-buttons {
         flex-direction: column;
+    }
+
+    .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-form .form-group {
+        flex: 1 1 100%;
+    }
+
+    .filter-form select {
+        width: 100%;
+    }
+
+    .filter-buttons {
+        width: 100%;
+    }
+
+    .filter-buttons .btn {
+        flex: 1;
     }
 }

@@ -457,3 +457,313 @@ class ViewTestCase(TestCase):
         # 應該只看到自己的 URL
         self.assertContains(response, "example1.com")
         self.assertNotContains(response, "example2.com")
+
+
+class URLToggleAndFilterTestCase(TestCase):
+    """URL Toggle 和 Filter/Sort 功能測試"""
+
+    def setUp(self):
+        """建立測試資料"""
+        self.user1 = User.objects.create_user(username="user1", password="pass123")
+        self.user2 = User.objects.create_user(username="user2", password="pass123")
+        self.client = Client()
+
+        # 建立多個測試 URL
+        self.url1 = URLService.create_short_url(self.user1, "https://zzz-example.com")
+        self.url2 = URLService.create_short_url(self.user1, "https://aaa-example.com")
+        self.url3 = URLService.create_short_url(self.user1, "https://mmm-example.com")
+
+    # ============ Service Layer - Toggle Tests ============
+
+    def test_toggle_url_status_active_to_inactive(self):
+        """測試切換 URL 從啟用到停用"""
+        self.assertTrue(self.url1.is_active)
+
+        toggled = URLService.toggle_url_status(self.url1.id, self.user1)
+
+        self.assertFalse(toggled.is_active)
+        # 重新從資料庫載入確認
+        self.url1.refresh_from_db()
+        self.assertFalse(self.url1.is_active)
+
+    def test_toggle_url_status_inactive_to_active(self):
+        """測試切換 URL 從停用到啟用"""
+        # 先停用
+        self.url1.is_active = False
+        self.url1.save()
+
+        toggled = URLService.toggle_url_status(self.url1.id, self.user1)
+
+        self.assertTrue(toggled.is_active)
+        self.url1.refresh_from_db()
+        self.assertTrue(self.url1.is_active)
+
+    def test_toggle_url_status_non_owner(self):
+        """測試非擁有者無法 toggle"""
+        with self.assertRaises(AccessDeniedError):
+            URLService.toggle_url_status(self.url1.id, self.user2)
+
+        # URL 狀態應該沒有改變
+        self.url1.refresh_from_db()
+        self.assertTrue(self.url1.is_active)
+
+    def test_toggle_url_status_not_found(self):
+        """測試 toggle 不存在的 URL"""
+        with self.assertRaises(UrlNotFoundError):
+            URLService.toggle_url_status(99999, self.user1)
+
+    # ============ Service Layer - Filter Tests ============
+
+    def test_get_filtered_urls_by_status_active(self):
+        """測試篩選啟用的 URL"""
+        # 停用一個 URL
+        self.url2.is_active = False
+        self.url2.save()
+
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, status_filter="active"
+        )
+
+        self.assertEqual(urls.count(), 2)
+        url_ids = [url.id for url in urls]
+        self.assertIn(self.url1.id, url_ids)
+        self.assertNotIn(self.url2.id, url_ids)
+        self.assertIn(self.url3.id, url_ids)
+
+    def test_get_filtered_urls_by_status_inactive(self):
+        """測試篩選停用的 URL"""
+        # 停用兩個 URL
+        self.url1.is_active = False
+        self.url1.save()
+        self.url2.is_active = False
+        self.url2.save()
+
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, status_filter="inactive"
+        )
+
+        self.assertEqual(urls.count(), 2)
+        url_ids = [url.id for url in urls]
+        self.assertIn(self.url1.id, url_ids)
+        self.assertIn(self.url2.id, url_ids)
+        self.assertNotIn(self.url3.id, url_ids)
+
+    def test_get_filtered_urls_by_status_all(self):
+        """測試顯示全部 URL（不篩選狀態）"""
+        # 停用一個 URL
+        self.url2.is_active = False
+        self.url2.save()
+
+        urls = URLService.get_filtered_urls_with_stats(self.user1, status_filter=None)
+
+        self.assertEqual(urls.count(), 3)
+
+    # ============ Service Layer - Sort Tests ============
+
+    def test_get_filtered_urls_sort_by_created_at_desc(self):
+        """測試按建立時間降序排序"""
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, sort_by="created_at", sort_order="desc"
+        )
+
+        # url3 是最後建立的，應該排第一
+        self.assertEqual(urls[0].id, self.url3.id)
+        self.assertEqual(urls[2].id, self.url1.id)
+
+    def test_get_filtered_urls_sort_by_created_at_asc(self):
+        """測試按建立時間升序排序"""
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, sort_by="created_at", sort_order="asc"
+        )
+
+        # url1 是最早建立的，應該排第一
+        self.assertEqual(urls[0].id, self.url1.id)
+        self.assertEqual(urls[2].id, self.url3.id)
+
+    def test_get_filtered_urls_sort_by_original_url_asc(self):
+        """測試按原始網址升序排序"""
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, sort_by="original_url", sort_order="asc"
+        )
+
+        # aaa 應該排第一，zzz 排最後
+        self.assertEqual(urls[0].original_url, "https://aaa-example.com")
+        self.assertEqual(urls[1].original_url, "https://mmm-example.com")
+        self.assertEqual(urls[2].original_url, "https://zzz-example.com")
+
+    def test_get_filtered_urls_sort_by_original_url_desc(self):
+        """測試按原始網址降序排序"""
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, sort_by="original_url", sort_order="desc"
+        )
+
+        # zzz 應該排第一，aaa 排最後
+        self.assertEqual(urls[0].original_url, "https://zzz-example.com")
+        self.assertEqual(urls[1].original_url, "https://mmm-example.com")
+        self.assertEqual(urls[2].original_url, "https://aaa-example.com")
+
+    def test_get_filtered_urls_combined_filter_and_sort(self):
+        """測試組合篩選和排序"""
+        # 停用 url1 (zzz)
+        self.url1.is_active = False
+        self.url1.save()
+
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, status_filter="active", sort_by="original_url", sort_order="asc"
+        )
+
+        # 只有兩個啟用的 URL，按字母順序排列
+        self.assertEqual(urls.count(), 2)
+        self.assertEqual(urls[0].original_url, "https://aaa-example.com")
+        self.assertEqual(urls[1].original_url, "https://mmm-example.com")
+
+    # ============ Service Layer - check_active Tests ============
+
+    def test_get_url_by_code_check_active_true_for_inactive_url(self):
+        """測試 check_active=True 時停用的 URL 拋出異常"""
+        # 停用 URL
+        self.url1.is_active = False
+        self.url1.save()
+
+        with self.assertRaises(UrlNotFoundError):
+            URLService.get_url_by_code(self.url1.short_code, check_active=True)
+
+    def test_get_url_by_code_check_active_false_for_inactive_url(self):
+        """測試 check_active=False 時停用的 URL 可以取得"""
+        # 停用 URL
+        self.url1.is_active = False
+        self.url1.save()
+
+        # 應該可以取得
+        url_obj = URLService.get_url_by_code(self.url1.short_code, check_active=False)
+
+        self.assertEqual(url_obj.id, self.url1.id)
+        self.assertFalse(url_obj.is_active)
+
+    def test_get_url_by_code_check_active_true_for_active_url(self):
+        """測試 check_active=True 時啟用的 URL 正常取得"""
+        url_obj = URLService.get_url_by_code(self.url1.short_code, check_active=True)
+
+        self.assertEqual(url_obj.id, self.url1.id)
+        self.assertTrue(url_obj.is_active)
+
+    # ============ View Layer - Toggle Tests ============
+
+    def test_toggle_url_view_success(self):
+        """測試 toggle view 成功切換狀態"""
+        self.client.login(username="user1", password="pass123")
+
+        response = self.client.post(reverse("toggle_url", args=[self.url1.id]))
+
+        # 應該重定向回 my_urls
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("my_urls"))
+
+        # URL 應該被停用
+        self.url1.refresh_from_db()
+        self.assertFalse(self.url1.is_active)
+
+    def test_toggle_url_view_non_owner(self):
+        """測試非擁有者無法 toggle"""
+        self.client.login(username="user2", password="pass123")
+
+        response = self.client.post(reverse("toggle_url", args=[self.url1.id]))
+
+        # 應該重定向並顯示錯誤訊息
+        self.assertEqual(response.status_code, 302)
+
+        # URL 狀態應該沒有改變
+        self.url1.refresh_from_db()
+        self.assertTrue(self.url1.is_active)
+
+    def test_toggle_url_view_requires_login(self):
+        """測試 toggle view 需要登入"""
+        response = self.client.post(reverse("toggle_url", args=[self.url1.id]))
+
+        # 應該重定向到登入頁
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response.url)
+
+    def test_toggle_url_view_get_not_allowed(self):
+        """測試 toggle view 不接受 GET 請求"""
+        self.client.login(username="user1", password="pass123")
+
+        response = self.client.get(reverse("toggle_url", args=[self.url1.id]))
+
+        # 應該重定向並顯示錯誤訊息
+        self.assertEqual(response.status_code, 302)
+
+    # ============ View Layer - Filter Tests ============
+
+    def test_my_urls_view_with_status_filter_active(self):
+        """測試 my_urls view 的狀態篩選（active）"""
+        self.client.login(username="user1", password="pass123")
+
+        # 停用一個 URL
+        self.url2.is_active = False
+        self.url2.save()
+
+        response = self.client.get(reverse("my_urls") + "?status=active")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.url1.short_code)
+        self.assertNotContains(response, self.url2.short_code)
+        self.assertContains(response, self.url3.short_code)
+
+    def test_my_urls_view_with_status_filter_inactive(self):
+        """測試 my_urls view 的狀態篩選（inactive）"""
+        self.client.login(username="user1", password="pass123")
+
+        # 停用一個 URL
+        self.url2.is_active = False
+        self.url2.save()
+
+        response = self.client.get(reverse("my_urls") + "?status=inactive")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, self.url1.short_code)
+        self.assertContains(response, self.url2.short_code)
+        self.assertNotContains(response, self.url3.short_code)
+
+    def test_my_urls_view_with_sorting(self):
+        """測試 my_urls view 的排序功能"""
+        self.client.login(username="user1", password="pass123")
+
+        response = self.client.get(
+            reverse("my_urls") + "?sort_by=original_url&order=asc"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        # 檢查排序是否正確（aaa 應該在 zzz 前面）
+        content = response.content.decode()
+        aaa_pos = content.find("aaa-example.com")
+        zzz_pos = content.find("zzz-example.com")
+        self.assertLess(aaa_pos, zzz_pos)
+
+    # ============ Integration Tests ============
+
+    def test_disabled_url_returns_404(self):
+        """測試停用的 URL 訪問時返回 404"""
+        # 停用 URL
+        self.url1.is_active = False
+        self.url1.save()
+
+        response = self.client.get(reverse("redirect", args=[self.url1.short_code]))
+
+        # 應該返回 404
+        self.assertEqual(response.status_code, 404)
+
+    def test_owner_can_view_disabled_url_stats(self):
+        """測試擁有者可以查看停用 URL 的統計"""
+        self.client.login(username="user1", password="pass123")
+
+        # 停用 URL
+        self.url1.is_active = False
+        self.url1.save()
+
+        response = self.client.get(reverse("url_stats", args=[self.url1.short_code]))
+
+        # 應該可以訪問
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "URL Statistics")
+        self.assertContains(response, self.url1.original_url)

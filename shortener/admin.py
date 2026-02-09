@@ -7,7 +7,8 @@ from .models import ClickLog, URLModel
 class URLModelAdmin(admin.ModelAdmin):
     """URLModel Admin 配置"""
 
-    list_display = ("id", "short_code", "original_url", "user", "created_at")
+    list_display = ("id", "short_code", "original_url", "user", "is_active", "created_at")
+    list_filter = ("is_active", "created_at", "user")
     search_fields = ("short_code", "original_url", "user__username")
     readonly_fields = ("id", "short_code", "created_at")
 

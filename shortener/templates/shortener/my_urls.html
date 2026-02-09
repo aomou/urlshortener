@@ -21,6 +21,41 @@
 
 <div class="card">
     <h2>My URLs</h2>
+
+    <form method="get" action="{% url 'my_urls' %}" class="filter-form">
+        <div class="filter-row">
+            <div class="form-group">
+                <label for="status">Status:</label>
+                <select name="status" id="status">
+                    <option value="all" {% if current_status == 'all' %}selected{% endif %}>All</option>
+                    <option value="active" {% if current_status == 'active' %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if current_status == 'inactive' %}selected{% endif %}>Inactive</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="sort_by">Sort by:</label>
+                <select name="sort_by" id="sort_by">
+                    <option value="created_at" {% if current_sort_by == 'created_at' %}selected{% endif %}>Created Date</option>
+                    <option value="original_url" {% if current_sort_by == 'original_url' %}selected{% endif %}>Original URL</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="order">Order:</label>
+                <select name="order" id="order">
+                    <option value="desc" {% if current_order == 'desc' %}selected{% endif %}>Descending</option>
+                    <option value="asc" {% if current_order == 'asc' %}selected{% endif %}>Ascending</option>
+                </select>
+            </div>
+
+            <div class="filter-buttons">
+                <button type="submit" class="btn btn-small">Apply</button>
+                <a href="{% url 'my_urls' %}" class="btn btn-secondary btn-small">Reset</a>
+            </div>
+        </div>
+    </form>
+
     {% if urls %}
         {% for url in urls %}
         <div class="url-item {% if not url.is_active %}url-inactive{% endif %}">

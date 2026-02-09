@@ -2,9 +2,11 @@
 Service 層業務邏輯實作
 """
 
+from datetime import timedelta
+
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
-from django.db.models import Count
+from django.db.models import Count, Q
 from django_user_agents.utils import get_user_agent
 from sqids import Sqids
 
@@ -156,6 +158,41 @@ class URLService:
             .annotate(click_count=Count("clicks"))  # 使用 annotate 避免 N+1 查詢問題
             .order_by("-created_at")
         )
+
+    @staticmethod
+    def get_filtered_urls_with_stats(
+        user, status_filter=None, sort_by="created_at", sort_order="desc"
+    ):
+        """
+        取得使用者的篩選過的 URL 列表（含統計）
+
+        Args:
+            user: Django User 物件
+            status_filter: 狀態篩選 ('active', 'inactive', None 表示全部)
+            sort_by: 排序欄位 ('created_at', 'original_url')
+            sort_order: 排序方向 ('asc' 升序, 'desc' 降序)
+
+        Returns:
+            QuerySet of URLModel with click_count annotation
+        """
+        # 基礎查詢
+        queryset = URLModel.objects.filter(user=user)
+
+        # 狀態篩選
+        if status_filter == "active":
+            queryset = queryset.filter(is_active=True)
+        elif status_filter == "inactive":
+            queryset = queryset.filter(is_active=False)
+
+        # 加入點擊統計
+        queryset = queryset.annotate(click_count=Count("clicks"))
+
+        # 排序
+        sort_field = "original_url" if sort_by == "original_url" else "created_at"
+        order_prefix = "-" if sort_order == "desc" else ""
+        queryset = queryset.order_by(f"{order_prefix}{sort_field}")
+
+        return queryset
 
     @staticmethod
     def toggle_url_status(url_id, user):

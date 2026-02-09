@@ -204,6 +204,11 @@ graph TB
   - 在我的網址頁面顯示 Activate/Deactivate 按鈕
   - 顯示啟用狀態標籤（Active/Inactive）
 
+### 2.1 篩選與排序功能
+- **狀態篩選**：Active / Inactive / All（預設顯示全部）
+- **排序功能**：
+  - 排序欄位：建立時間 / 原始網址（預設為建立時間）
+  - 排序方向：升序 / 降序（預設降序）
 
 ### 3. 重定向功能
 - 訪問短網址時，302 重定向至原網址
@@ -353,13 +358,14 @@ class ClickLog(models.Model):
 |------|-----------|----------|----------|
 | `/` | GET | 首頁/登入頁 | 公開 |
 | `/accounts/*` | GET/POST | OAuth 登入流程 | 公開 |
-| `/my-urls/` | GET | 我的網址列表頁 | 需登入 |
+| `/my-urls/` | GET | 我的網址列表頁（支援篩選排序） | 需登入 |
 | `/my-urls/` | POST | 建立短網址 | 需登入 |
 | `/my-urls/toggle/<int:url_id>/` | POST | 切換 URL 啟用/停用狀態 | 需登入（僅限擁有者） |
 | `/stats/<code>/` | GET | 統計詳情頁 | 需登入（僅限擁有者） |
 | `/<code>/` | GET | 短網址重定向 | 公開 |
 
 **注意事項：**
+- `/my-urls/` GET 請求支援篩選參數：`status`, `search`, `start_date`, `end_date`, `sort_by`, `sort_order`
 - `/my-urls/` 同時處理 GET（顯示列表）和 POST（建立短網址）請求
 - `/my-urls/toggle/<int:url_id>/` 為 POST-only endpoint，用於切換 URL 啟用狀態
 - 短網址重定向路由（`/<code>/`）必須放在路由配置的最後，避免攔截其他路由
@@ -382,7 +388,12 @@ class ClickLog(models.Model):
 ### 2. 我的網址頁 (`my_urls.html`)
 - Header：使用者資訊、登出按鈕
 - 表單：輸入長網址、提交按鈕
-- 列表：只顯示當前使用者建立的 URL，按建立時間倒序排列
+- **篩選表單**：
+  - 狀態下拉選單（All/Active/Inactive）
+  - 排序欄位選單（Created Date / Original URL）
+  - 排序方向選單（Ascending/Descending）
+  - Apply 按鈕
+- 列表：顯示篩選後的 URL 列表
   - 短網址連結（可複製）
   - 啟用狀態標籤（Active/Inactive）
   - 原始網址
@@ -392,15 +403,18 @@ class ClickLog(models.Model):
   - **Toggle 按鈕**（Activate/Deactivate）
 
 **View 行為：**
-- **功能**：顯示當前使用者建立的所有短網址與新增表單
+- **功能**：顯示當前使用者建立的短網址、支援狀態篩選與時間排序、新增表單、Toggle 功能
 - **權限**：需登入（Login Required）
-- **查詢邏輯**：
-  - 呼叫 `URLService.get_user_urls_with_stats(request.user)` 取得該使用者的 URL 列表（含點擊統計）
-  - 若為 POST 請求，呼叫 `URLService.get_or_create_short_url(request.user, original_url)` 建立或取得短網址
+- **GET 請求查詢邏輯**：
+  - 解析 GET 參數：`status`（預設 "all"）、`sort_by`（預設 "created_at"）、`order`（預設 "desc"）
+  - 呼叫 `URLService.get_filtered_urls_with_stats(user, status, sort_by, order)` 取得篩選排序後的 URL 列表
+  - 將篩選參數回傳給模板，用於保持表單狀態
+- **POST 請求邏輯**：
+  - 呼叫 `URLService.get_or_create_short_url(request.user, original_url)` 建立或取得短網址
 - **訊息回饋**：
   - 新建立短網址：綠色成功訊息（`messages.success`）
   - 重複 URL：黃色警告訊息（`messages.warning`），提示已存在並顯示該短網址
-  - Toggle 成功：綠色成功訊息，顯示 activated/deactivated 狀態
+  - Toggle 成功：綠色成功訊息，顯示 enabled/disabled 狀態
   - 驗證失敗：紅色錯誤訊息（`messages.error`）
 - **錯誤處理**：未登入時重定向至登入頁，驗證失敗時由 Service 拋出異常，View 負責將錯誤訊息傳回模板顯示
 

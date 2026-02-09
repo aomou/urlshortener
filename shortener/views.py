@@ -58,10 +58,25 @@ def my_urls_view(request):
 
         return redirect("my_urls")
 
-    # GET: 顯示列表
-    urls = URLService.get_user_urls_with_stats(request.user)  # 邏輯放在 service
+    # GET: 取得篩選參數
+    status = request.GET.get("status", "all")
+    sort_by = request.GET.get("sort_by", "created_at")
+    order = request.GET.get("order", "desc")
 
-    context = {"urls": urls}
+    # 呼叫 Service 篩選
+    urls = URLService.get_filtered_urls_with_stats(
+        user=request.user,
+        status_filter=status if status != "all" else None,
+        sort_by=sort_by,
+        sort_order=order,
+    )
+
+    context = {
+        "urls": urls,
+        "current_status": status,
+        "current_sort_by": sort_by,
+        "current_order": order,
+    }
     return render(request, "shortener/my_urls.html", context)
 
 
