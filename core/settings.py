@@ -30,12 +30,15 @@ SECRET_KEY = os.getenv(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "True") == "True"
+DEBUG = not bool(os.getenv("RENDER"))
 
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
 ]
+
+if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
+    ALLOWED_HOSTS.append(os.getenv("RENDER_EXTERNAL_HOSTNAME"))
 
 
 # Application definition
@@ -120,6 +123,11 @@ SOCIALACCOUNT_PROVIDERS = {
     },
 }
 
+CSRF_TRUSTED_ORIGINS = []
+
+if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
+    CSRF_TRUSTED_ORIGINS.append(f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}")
+
 ROOT_URLCONF = "core.urls"
 
 TEMPLATES = [
@@ -194,4 +202,13 @@ STATIC_URL = "static/"
 # Static files configuration
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# Storage configuration (Django 4.2+)
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
