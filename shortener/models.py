@@ -16,8 +16,8 @@ class URLModel(models.Model):
     )
 
     class Meta:
-        verbose_name = "短網址"
-        verbose_name_plural = "短網址"
+        verbose_name = "URL"
+        verbose_name_plural = "URLs"
         ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(
@@ -43,8 +43,8 @@ class ClickLog(models.Model):
     referer = models.URLField(max_length=2048, blank=True, verbose_name="來源網站")
 
     class Meta:
-        verbose_name = "點擊記錄"
-        verbose_name_plural = "點擊記錄"
+        verbose_name = "Click Log"
+        verbose_name_plural = "Click Logs"
         ordering = ["-clicked_at"]
 
     def __str__(self):
