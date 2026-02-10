@@ -2,11 +2,9 @@
 Service 層業務邏輯實作
 """
 
-from datetime import timedelta
-
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
-from django.db.models import Count, Q
+from django.db.models import Count
 from django_user_agents.utils import get_user_agent
 from sqids import Sqids
 

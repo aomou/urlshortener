@@ -95,9 +95,7 @@ def toggle_url_view(request, url_id):
         url_obj = URLService.toggle_url_status(url_id, request.user)
 
         status_text = "enabled" if url_obj.is_active else "disabled"
-        messages.success(
-            request, f"URL {url_obj.short_code} has been {status_text}"
-        )
+        messages.success(request, f"URL {url_obj.short_code} has been {status_text}")
 
     except UrlNotFoundError:
         messages.error(request, "Short URL not found")

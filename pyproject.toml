@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "black>=26.1.0",
     "cryptography>=46.0.4",
+    "dj-database-url>=3.1.0",
     "django>=6.0.1",
     "django-allauth>=65.14.0",
     "django-ipware>=7.0.1",
@@ -23,10 +24,12 @@ dependencies = [
 
 [tool.black]
 line-length = 88
+force-exclude = '/*\/migrations\//'
 
 [tool.ruff]
 line-length = 88
 target-version = "py313"
+exclude = ["**/migrations/*.py"]
 
 [tool.ruff.lint]
 select = [
@@ -46,3 +49,8 @@ select = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["core", "shortener", "users"]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1",
+]

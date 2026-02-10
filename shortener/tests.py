@@ -437,9 +437,7 @@ class ViewTestCase(TestCase):
         response = self.client.get(response.url)
         self.assertEqual(response.status_code, 200)
         messages_list = list(response.context["messages"])
-        self.assertTrue(
-            any("Short URL not found" in str(m) for m in messages_list)
-        )
+        self.assertTrue(any("Short URL not found" in str(m) for m in messages_list))
 
     def test_user_isolation(self):
         """測試使用者資料隔離"""
