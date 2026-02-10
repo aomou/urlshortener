@@ -92,7 +92,9 @@ ACCOUNT_LOGOUT_REDIRECT_URL = "/"  # 登出後重定向
 SOCIALACCOUNT_ONLY = True  # 只允許第三方登入，禁用用戶名/密碼登入
 SOCIALACCOUNT_AUTO_SIGNUP = True  # 自動註冊，不需要手動確認
 SOCIALACCOUNT_QUERY_EMAIL = True  # 向 OAuth 提供者查詢 email
-SOCIALACCOUNT_EMAIL_REQUIRED = True  # 要求第三方登入必須提供 email
+SOCIALACCOUNT_EMAIL_REQUIRED = False  # 允許沒有 email 的帳號（使用 username）
+# 註冊欄位設定：email 可選，username 必填
+ACCOUNT_SIGNUP_FIELDS = ["email", "username*"]
 
 # Social Account Providers (OAuth)
 SOCIALACCOUNT_PROVIDERS = {
