@@ -664,6 +664,27 @@ footer {
     align-items: center;
 }
 
+/* Copy Button */
+.copy-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: var(--font-size-lg);
+    padding: 0 8px;
+    opacity: 0.6;
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+    vertical-align: middle;
+}
+
+.copy-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.copy-btn:active {
+    transform: scale(0.95);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     header .container {

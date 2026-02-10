@@ -69,8 +69,13 @@
                     <a href="{{ request.scheme }}://{{ request.get_host }}/{{ url.short_code }}/"
                        target="_blank"
                        {% if not url.is_active %}class="link-disabled"{% endif %}>
-                        {{ request.get_host }}/{{ url.short_code }}/
+                        {{ url.short_code }}
                     </a>
+                    <button class="copy-btn"
+                            onclick="copyToClipboard('{{ request.scheme }}://{{ request.get_host }}/{{ url.short_code }}/', this)"
+                            title="Copy full URL">
+                        🔗
+                    </button>
                 </div>
                 <div class="original-url">→ {{ url.original_url }}</div>
             </div>
@@ -97,4 +102,24 @@
         </p>
     {% endif %}
 </div>
+
+<script>
+function copyToClipboard(url, button) {
+    navigator.clipboard.writeText(url).then(() => {
+        // Show feedback
+        const originalText = button.textContent;
+        button.textContent = '✓';
+        button.style.color = '#27ae60';
+
+        // Reset after 2 seconds
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.style.color = '';
+        }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy URL');
+    });
+}
+</script>
 {% endblock %}
