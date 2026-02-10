@@ -5,13 +5,14 @@ Views 層：處理 HTTP 請求和回應
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 
 from .exceptions import AccessDeniedError, UrlNotFoundError
 from .services import AnalyticsService, URLService
 
 
-def home_view(request):
+def home_view(request: HttpRequest) -> HttpResponse:
     """
     首頁/登入頁
 
@@ -25,7 +26,7 @@ def home_view(request):
 
 
 @login_required
-def my_urls_view(request):
+def my_urls_view(request: HttpRequest) -> HttpResponse:
     """
     我的網址頁
 
@@ -81,7 +82,7 @@ def my_urls_view(request):
 
 
 @login_required
-def toggle_url_view(request, url_id):
+def toggle_url_view(request: HttpRequest, url_id: int) -> HttpResponse:
     """
     切換 URL 啟用/停用狀態
 
@@ -106,7 +107,7 @@ def toggle_url_view(request, url_id):
 
 
 @login_required
-def url_stats_view(request, code):
+def url_stats_view(request: HttpRequest, code: str) -> HttpResponse:
     """
     統計詳情頁
 
@@ -139,7 +140,7 @@ def url_stats_view(request, code):
         return redirect("my_urls")
 
 
-def redirect_view(request, code):
+def redirect_view(request: HttpRequest, code: str) -> HttpResponse:
     """
     短網址重定向
 
@@ -160,13 +161,11 @@ def redirect_view(request, code):
         return render(request, "shortener/404.html", status=404)
 
 
-def health_check(request):
+def health_check(request: HttpRequest) -> JsonResponse:
     """
     健康檢查端點
 
     用於監控系統和 cronjob ping，保持服務活躍
     返回簡單的 JSON 回應，不需要資料庫查詢
     """
-    from django.http import JsonResponse
-
     return JsonResponse({"status": "ok"}, status=200)

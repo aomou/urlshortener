@@ -2,9 +2,11 @@
 Service 層業務邏輯實作
 """
 
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
-from django.db.models import Count
+from django.db.models import Count, QuerySet
+from django.http import HttpRequest
 from django_user_agents.utils import get_user_agent
 from sqids import Sqids
 
@@ -19,7 +21,7 @@ class URLService:
     """短網址服務"""
 
     @staticmethod
-    def create_short_url(user, original_url):
+    def create_short_url(user: User, original_url: str) -> URLModel:
         """
         建立短網址
 
@@ -53,7 +55,7 @@ class URLService:
         return url_obj
 
     @staticmethod
-    def get_or_create_short_url(user, original_url):
+    def get_or_create_short_url(user: User, original_url: str) -> tuple[URLModel, bool]:
         """
         取得或建立短網址（防止重複）
 
@@ -93,7 +95,7 @@ class URLService:
         return (new_url, True)
 
     @staticmethod
-    def get_url_by_code(code, check_active=True):
+    def get_url_by_code(code: str, check_active: bool = True) -> URLModel:
         """
         根據短碼取得 URL 物件
 
@@ -128,7 +130,7 @@ class URLService:
             raise UrlNotFoundError(f"URL not found: {code}") from None
 
     @staticmethod
-    def get_user_urls(user):
+    def get_user_urls(user: User) -> QuerySet[URLModel]:
         """
         取得使用者的所有短網址
 
@@ -141,7 +143,7 @@ class URLService:
         return URLModel.objects.filter(user=user).order_by("-created_at")
 
     @staticmethod
-    def get_user_urls_with_stats(user):
+    def get_user_urls_with_stats(user: User) -> QuerySet[URLModel]:
         """
         取得使用者的所有短網址（含點擊次數統計）
 
@@ -159,8 +161,11 @@ class URLService:
 
     @staticmethod
     def get_filtered_urls_with_stats(
-        user, status_filter=None, sort_by="created_at", sort_order="desc"
-    ):
+        user: User,
+        status_filter: str | None = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+    ) -> QuerySet[URLModel]:
         """
         取得使用者的篩選過的 URL 列表（含統計）
 
@@ -193,7 +198,7 @@ class URLService:
         return queryset
 
     @staticmethod
-    def toggle_url_status(url_id, user):
+    def toggle_url_status(url_id: int, user: User) -> URLModel:
         """
         切換 URL 啟用狀態
 
@@ -223,7 +228,7 @@ class URLService:
         return url_obj
 
     @staticmethod
-    def verify_owner(url_obj, user):
+    def verify_owner(url_obj: URLModel, user: User) -> None:
         """
         驗證使用者是否為 URL 擁有者
 
@@ -242,7 +247,7 @@ class AnalyticsService:
     """統計分析服務"""
 
     @staticmethod
-    def record_click(url_obj, request):
+    def record_click(url_obj: URLModel, request: HttpRequest) -> ClickLog:
         """
         記錄點擊事件
 
@@ -278,7 +283,7 @@ class AnalyticsService:
         return click_log
 
     @staticmethod
-    def get_url_stats(url_obj):
+    def get_url_stats(url_obj: URLModel) -> dict:
         """
         取得 URL 統計資料
 
@@ -308,7 +313,7 @@ class AnalyticsService:
         return {"total_clicks": total_clicks, "clicks": clicks_data}
 
     @staticmethod
-    def _get_client_ip(request):
+    def _get_client_ip(request: HttpRequest) -> str:
         """
         取得客戶端真實 IP 位址
 
@@ -329,7 +334,7 @@ class AnalyticsService:
         return ip
 
     @staticmethod
-    def _get_device_type(user_agent):
+    def _get_device_type(user_agent) -> str:
         """
         判斷裝置類型
 
@@ -349,7 +354,7 @@ class AnalyticsService:
             return "Unknown"
 
     @staticmethod
-    def anonymize_ip(ip_address):
+    def anonymize_ip(ip_address: str) -> str:
         """
         匿名化 IP 位址（用於前端顯示）
 
