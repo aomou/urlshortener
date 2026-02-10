@@ -310,7 +310,7 @@ class ViewTestCase(TestCase):
 
         # 應該重定向到登入頁
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/accounts/login/", response.url)
+        self.assertTrue(response.url.startswith("/?next="))
 
     def test_my_urls_view_authenticated(self):
         """測試已登入使用者可以訪問我的網址頁"""
@@ -388,7 +388,7 @@ class ViewTestCase(TestCase):
 
         # 應該重定向到登入頁
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/accounts/login/", response.url)
+        self.assertTrue(response.url.startswith("/?next="))
 
     def test_url_stats_view_owner_access(self):
         """測試擁有者可以訪問統計頁"""
@@ -680,7 +680,7 @@ class URLToggleAndFilterTestCase(TestCase):
 
         # 應該重定向到登入頁
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/accounts/login/", response.url)
+        self.assertTrue(response.url.startswith("/?next="))
 
     def test_toggle_url_view_get_not_allowed(self):
         """測試 toggle view 不接受 GET 請求"""

@@ -87,6 +87,7 @@ SITE_ID = 1
 
 # Django-allauth settings
 ACCOUNT_EMAIL_VERIFICATION = "none"  # 開發階段不驗證 email
+LOGIN_URL = "/"  # 未登入一律導回首頁
 LOGIN_REDIRECT_URL = "/my-urls/"  # 登入後重定向
 ACCOUNT_LOGOUT_REDIRECT_URL = "/"  # 登出後重定向
 SOCIALACCOUNT_ONLY = True  # 只允許第三方登入，禁用用戶名/密碼登入
