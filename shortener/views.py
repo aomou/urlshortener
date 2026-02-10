@@ -158,3 +158,15 @@ def redirect_view(request, code):
 
     except UrlNotFoundError:
         return render(request, "shortener/404.html", status=404)
+
+
+def health_check(request):
+    """
+    健康檢查端點
+
+    用於監控系統和 cronjob ping，保持服務活躍
+    返回簡單的 JSON 回應，不需要資料庫查詢
+    """
+    from django.http import JsonResponse
+
+    return JsonResponse({"status": "ok"}, status=200)
