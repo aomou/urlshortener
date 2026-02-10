@@ -1,4 +1,5 @@
 {% load static %}
+{% load socialaccount %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,7 +17,9 @@
             <h1><a href="{% url 'home' %}">URL Shortener</a></h1>
             {% if user.is_authenticated %}
             <div class="user-info">
-                <span>{{ user.email|default:user.username }}</span>
+                <span>
+                    {{ user.email|default:user.username }}{% for account in user.socialaccount_set.all %} ({{ account.provider|title }}){% endfor %}
+                </span>
                 <a href="{% url 'my_urls' %}" class="btn btn-secondary">My URLs</a>
                 <form method="post" action="{% url 'account_logout' %}" class="logout-form">
                     {% csrf_token %}
