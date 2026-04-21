@@ -9,13 +9,13 @@ A URL shortener service built with Django, featuring OAuth login and click track
 ## ✨ Key Features
 
 - Create and manage short URLs per user
-- Google and Facebook OAuth login (no local password authentication)
+- Google OAuth login (no local password authentication)
 - Enable/disable URLs for temporary deactivation
 - Click tracking with basic statistics (total clicks)
 - Filter and sort URLs by status and creation date
 
 ## Live Demo
-https://urlshortener-1dic.onrender.com
+Coming soon
 
 ## 🏗️ Architecture
 
@@ -113,7 +113,7 @@ Visit `http://127.0.0.1:8000` to see the application.
 ### OAuth Setup
 
 For OAuth login functionality:
-1. Get credentials from [Google Cloud Console](https://console.cloud.google.com/) and/or [Facebook Developers](https://developers.facebook.com/)
+1. Get credentials from [Google Cloud Console](https://console.cloud.google.com/)
 2. Configure redirect URI in OAuth provider console: `http://127.0.0.1:8000/accounts/{provider}/login/callback/`
 3. Add credentials to `.env` (see `.env.example` for format)
 

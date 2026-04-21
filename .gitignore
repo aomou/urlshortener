@@ -15,5 +15,8 @@ wheels/
 # Environment variables
 .env
 
+# Docs
+doc/archived/
+
 # System files
 .DS_Store

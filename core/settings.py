@@ -57,7 +57,6 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
-    "allauth.socialaccount.providers.facebook",
     # Local apps
     "shortener",
 ]
@@ -111,19 +110,7 @@ SOCIALACCOUNT_PROVIDERS = {
             "client_id": os.getenv("GOOGLE_CLIENT_ID", ""),
             "secret": os.getenv("GOOGLE_SECRET_KEY", ""),
         },
-    },
-    "facebook": {
-        "SCOPE": [
-            "email",
-            "public_profile",
-        ],
-        "METHOD": "oauth2",
-        "VERIFIED_EMAIL": False,
-        "APP": {
-            "client_id": os.getenv("FACEBOOK_CLIENT_ID", ""),
-            "secret": os.getenv("FACEBOOK_SECRET_KEY", ""),
-        },
-    },
+    }
 }
 
 CSRF_TRUSTED_ORIGINS = []

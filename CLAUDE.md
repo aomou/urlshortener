@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A Django-based URL shortener service with OAuth login (Google/Facebook) and click tracking analytics. This is an MVP project following the "Thin Models, Thin Views, Fat Services" architecture pattern.
+A Django-based URL shortener service with OAuth login (Google) and click tracking analytics. This is an MVP project following the "Thin Models, Thin Views, Fat Services" architecture pattern.
 
 **Tech Stack:**
 - Django 6.0.1 with Django Templates

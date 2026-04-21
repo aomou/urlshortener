@@ -18,16 +18,5 @@
         {% csrf_token %}
         <button type="submit" class="btn btn-large">Continue</button>
     </form>
-
-    {% if provider.id == "facebook" %}
-    <div class="oauth-notice">
-        <p class="notice-text">
-            <small>⚠️ Note: Facebook login is only available for test accounts during development.</small>
-        </p>
-        <a href="{% url 'google_login' %}" class="btn btn-secondary btn-small">
-            Use Google Login Instead
-        </a>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}
