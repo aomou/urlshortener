@@ -155,6 +155,7 @@ python manage.py startapp users
 ```bash
 python manage.py makemigrations users
 ```
+> 舊資料不保留，不做 data migration!
 
 The generated `0001_initial.py` only creates the schema. Add a **data migration** to backfill profiles for pre-existing users:
 
