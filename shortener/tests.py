@@ -186,6 +186,13 @@ class URLServiceTestCase(TestCase):
         with self.assertRaises(ValidationError):
             URLService.get_or_create_short_url(self.user1, "")
 
+    def test_urlmodel_expires_at_nullable(self):
+        """測試 URLModel 的 expires_at 是否可為空"""
+        url = URLModel.objects.create(
+            user=self.user1, original_url="https://x.com", short_code="abc123"
+        )
+        self.assertIsNone(url.expires_at)
+
 
 class AnalyticsServiceTestCase(TestCase):
     """AnalyticsService 測試"""
