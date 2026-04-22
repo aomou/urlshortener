@@ -1,5 +1,18 @@
 # Done
 
+`2026-04-21-guest-mode-and-facebook-removal.md`
+
+## phase 1 data
+
+- (users) add UserProfile model with auto-create signal
+    - 舊資料不用保留，不做 data migration
+- (shortener) add URLModel.expires_at
+- (shortener) add RateLimitEvent model
+
+## phase 2 domain service
+
+
+
 # To-do
 
 改成自己的作品集
