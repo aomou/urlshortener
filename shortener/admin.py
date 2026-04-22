@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ClickLog, URLModel
+from .models import ClickLog, RateLimitEvent, URLModel
 
 
 @admin.register(URLModel)
@@ -35,3 +35,13 @@ class ClickLogAdmin(admin.ModelAdmin):
     )
     search_fields = ("url__short_code", "ip_address")
     readonly_fields = ("id", "clicked_at")
+
+
+@admin.register(RateLimitEvent)
+class RateLimitEventAdmin(admin.ModelAdmin):
+    """RateLimitEvent Admin 配置"""
+
+    list_display = ("user", "created_at")
+    list_filter = ("created_at",)
+    search_fields = ("user__username",)
+    readonly_fields = ("user", "created_at")

@@ -51,3 +51,21 @@ class ClickLog(models.Model):
 
     def __str__(self):
         return f"{self.url.short_code} - {self.clicked_at}"
+
+
+class RateLimitEvent(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="rate_limit_events",
+        verbose_name="使用者",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "Rate Limit Event"
+        verbose_name_plural = "Rate Limit Events"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} @ {self.created_at:%Y-%m-%d %H:%M:%S}"
