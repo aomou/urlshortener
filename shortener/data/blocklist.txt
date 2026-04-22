@@ -1,0 +1,10 @@
+# Abuse-prone shortener services (prevent shortener-nesting)
+bit.ly
+t.co
+tinyurl.com
+goo.gl
+ow.ly
+is.gd
+buff.ly
+
+# Known phishing-prone placeholders; expand as needed

@@ -11,6 +11,8 @@
 
 ## phase 2 domain service
 
+- feat(shortener): add domain exceptions for expiry, blocklist, quota, ban
+- feat(shortener): add BlocklistService with local domain blocklist
 
 
 # To-do

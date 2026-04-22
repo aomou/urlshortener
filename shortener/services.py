@@ -2,6 +2,10 @@
 Service 層業務邏輯實作
 """
 
+from functools import lru_cache
+from pathlib import Path
+from urllib.parse import urlparse
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
@@ -15,6 +19,43 @@ from .models import ClickLog, URLModel
 
 # 初始化 Sqids 編碼器
 sqids = Sqids(min_length=6)
+
+BLOCKLIST_FILE = Path(__file__).resolve().parent / "data" / "blocklist.txt"
+
+
+class BlocklistService:
+    """本地 domain 黑名單"""
+
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def _load() -> frozenset[str]:
+        """
+        從檔案讀取黑名單網域並快取
+
+        Returns:
+            set: 包含黑名單網域的集合
+        """
+        lines = BLOCKLIST_FILE.read_text(encoding="utf-8").splitlines()
+        return frozenset(
+            line.strip().lower()
+            for line in lines
+            if line.strip() and not line.startswith("#")
+        )
+
+    @staticmethod
+    def is_blocked(url: str) -> bool:
+        """
+        檢查 URL 是否在黑名單中
+
+        Args:
+            url: 原始網址
+
+        Returns:
+            bool: True 表示被封鎖
+        """
+        host = urlparse(url).hostname or ""
+        host = host.lower().removeprefix("www.")
+        return host in BlocklistService._load()
 
 
 class URLService:

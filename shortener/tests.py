@@ -9,7 +9,7 @@ from django.urls import reverse
 
 from .exceptions import AccessDeniedError, UrlNotFoundError
 from .models import ClickLog, URLModel
-from .services import AnalyticsService, URLService
+from .services import AnalyticsService, BlocklistService, URLService
 
 
 class URLServiceTestCase(TestCase):
@@ -192,6 +192,24 @@ class URLServiceTestCase(TestCase):
             user=self.user1, original_url="https://x.com", short_code="abc123"
         )
         self.assertIsNone(url.expires_at)
+
+
+class BlocklistServiceTestCase(TestCase):
+    def test_blocked_domain(self):
+        self.assertTrue(BlocklistService.is_blocked("https://bit.ly/abc"))
+
+    def test_clean_domain(self):
+        self.assertFalse(BlocklistService.is_blocked("https://example.com/x"))
+
+    def test_strips_www_prefix(self):
+        self.assertTrue(BlocklistService.is_blocked("https://www.bit.ly/abc"))
+
+    def test_case_insensitive(self):
+        self.assertTrue(BlocklistService.is_blocked("https://BIT.LY/abc"))
+
+    def test_partial_match_not_blocked(self):
+        # "notbit.ly" must not be matched as "bit.ly"
+        self.assertFalse(BlocklistService.is_blocked("https://notbit.ly/x"))
 
 
 class AnalyticsServiceTestCase(TestCase):
