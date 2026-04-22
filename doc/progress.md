@@ -14,6 +14,7 @@
 - feat(shortener): add domain exceptions for expiry, blocklist, quota, ban
 - feat(shortener): add BlocklistService with local domain blocklist
 - feat(users): add UserService (guest creation, quota, lifetime, ban)
+- feat(shortener): add RateLimitService with auto-ban at 5 hits/10min
 
 
 # To-do

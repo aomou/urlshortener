@@ -2,6 +2,7 @@
 Service 層業務邏輯實作
 """
 
+from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlparse
@@ -11,11 +12,17 @@ from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db.models import Count, QuerySet
 from django.http import HttpRequest
+from django.utils import timezone
 from django_user_agents.utils import get_user_agent
 from sqids import Sqids
 
+from users.services import UserService
+
 from .exceptions import AccessDeniedError, UrlNotFoundError
-from .models import ClickLog, URLModel
+from .models import ClickLog, RateLimitEvent, URLModel
+
+BAN_THRESHOLD = 5
+BAN_WINDOW = timedelta(minutes=10)
 
 # 初始化 Sqids 編碼器
 sqids = Sqids(min_length=6)
@@ -418,3 +425,16 @@ class AnalyticsService:
             if len(parts) == 4:
                 return ".".join(parts[:3]) + ".0"
         return ip_address
+
+
+class RateLimitService:
+    @staticmethod
+    def register_hit(user, request=None) -> None:
+        """寫入一次 rate-limit 觸發事件；若 10 分鐘內達門檻則 ban。"""
+        RateLimitEvent.objects.create(user=user)
+        window_start = timezone.now() - BAN_WINDOW
+        recent = RateLimitEvent.objects.filter(
+            user=user, created_at__gte=window_start
+        ).count()
+        if recent >= BAN_THRESHOLD:
+            UserService.ban_user(user, request)

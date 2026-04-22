@@ -2,10 +2,16 @@
 Tests for shortener app
 """
 
+from datetime import timedelta
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
+from django.utils import timezone
+
+from shortener.models import RateLimitEvent
+from shortener.services import BAN_THRESHOLD, RateLimitService
 
 from .exceptions import AccessDeniedError, UrlNotFoundError
 from .models import ClickLog, URLModel
@@ -790,3 +796,31 @@ class URLToggleAndFilterTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "URL Statistics")
         self.assertContains(response, self.url1.original_url)
+
+
+class RateLimitServiceTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="rl-user")
+
+    def test_threshold_triggers_ban(self):
+        for _ in range(BAN_THRESHOLD):
+            RateLimitService.register_hit(self.user)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.profile.is_banned)
+
+    def test_below_threshold_no_ban(self):
+        for _ in range(BAN_THRESHOLD - 1):
+            RateLimitService.register_hit(self.user)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.profile.is_banned)
+
+    def test_old_events_dont_count(self):
+        # Seed old events outside window; they must not trigger ban.
+        old_time = timezone.now() - timedelta(minutes=30)
+        for _ in range(BAN_THRESHOLD):
+            event = RateLimitEvent.objects.create(user=self.user)
+            RateLimitEvent.objects.filter(pk=event.pk).update(created_at=old_time)
+        # One fresh hit should NOT trip the ban alone.
+        RateLimitService.register_hit(self.user)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.profile.is_banned)
