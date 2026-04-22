@@ -154,19 +154,17 @@ class URLService:
             return (existing_url, False)
 
         # 5. Active quota
-        now = timezone.now()
         active_count = (
             URLModel.objects.filter(user=user)
-            .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+            .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
             .count()
         )
         quota = UserService.get_quota(user)
         if active_count >= quota:
             raise QuotaExceededError(f"已達配額上限 ({quota} 個）")
 
-        # 6. Lifetime -> expires_at
-        lifetime = UserService.get_url_lifetime(user)
-        expires_at = None if lifetime is None else now + lifetime
+        # 6. 決定 expires_at
+        expires_at = UserService.get_url_expires_at(user)
 
         # 7. Create + Sqids encode
         url_obj = URLModel.objects.create(

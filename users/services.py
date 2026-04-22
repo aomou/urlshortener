@@ -3,7 +3,7 @@ User-related services: guest provisioning, quotas, URL lifetimes, banning.
 """
 
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.contrib.auth import logout
 from django.contrib.auth.models import User
@@ -46,13 +46,14 @@ class UserService:
         return GOOGLE_QUOTA
 
     @staticmethod
-    def get_url_lifetime(user: User) -> timedelta | None:
+    def get_url_expires_at(user: User) -> datetime | None:
+        """回傳新建 URL 應設定的 expires_at（None = 永久）。"""
         if user.is_staff:
             return None
         if user.profile.is_guest:
-            # Align URL expiry with the guest account's own expiry.
-            return user.profile.expires_at - timezone.now()
-        return GOOGLE_URL_LIFETIME
+            # 與 guest 帳號壽命完全對齊，避免 now() 漂移。
+            return user.profile.expires_at
+        return timezone.now() + GOOGLE_URL_LIFETIME
 
     @staticmethod
     def ban_user(user: User, request: HttpRequest | None = None) -> None:

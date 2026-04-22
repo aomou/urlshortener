@@ -213,6 +213,10 @@ class URLServicePolicyTestCase(TestCase):
         self.regular = User.objects.create_user(username="alice")
         self.admin = User.objects.create_user(username="admin", is_staff=True)
 
+    def test_guest_url_expires_with_guest(self):
+        url, _ = URLService.get_or_create_short_url(self.guest, "https://example.com")
+        self.assertEqual(url.expires_at, self.guest.profile.expires_at)
+
     def test_google_url_expires_in_7d(self):
         url, _ = URLService.get_or_create_short_url(self.regular, "https://example.com")
         drift = abs((url.expires_at - timezone.now()) - timedelta(days=7))
