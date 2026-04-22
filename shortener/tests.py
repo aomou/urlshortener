@@ -10,8 +10,15 @@ from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from shortener.exceptions import (
+    BlockedDomainError,
+    QuotaExceededError,
+    UrlExpiredError,
+    UserBannedError,
+)
 from shortener.models import RateLimitEvent
 from shortener.services import BAN_THRESHOLD, RateLimitService
+from users.services import GUEST_QUOTA, UserService
 
 from .exceptions import AccessDeniedError, UrlNotFoundError
 from .models import ClickLog, URLModel
@@ -198,6 +205,56 @@ class URLServiceTestCase(TestCase):
             user=self.user1, original_url="https://x.com", short_code="abc123"
         )
         self.assertIsNone(url.expires_at)
+
+
+class URLServicePolicyTestCase(TestCase):
+    def setUp(self):
+        self.guest = UserService.create_guest_user()
+        self.regular = User.objects.create_user(username="alice")
+        self.admin = User.objects.create_user(username="admin", is_staff=True)
+
+    def test_google_url_expires_in_7d(self):
+        url, _ = URLService.get_or_create_short_url(self.regular, "https://example.com")
+        drift = abs((url.expires_at - timezone.now()) - timedelta(days=7))
+        self.assertLess(drift.total_seconds(), 60)
+
+    def test_admin_url_permanent(self):
+        url, _ = URLService.get_or_create_short_url(self.admin, "https://example.com")
+        self.assertIsNone(url.expires_at)
+
+    def test_blocklist_raises(self):
+        with self.assertRaises(BlockedDomainError):
+            URLService.get_or_create_short_url(self.regular, "https://bit.ly/abc")
+
+    def test_banned_user_raises(self):
+        self.regular.profile.is_banned = True
+        self.regular.profile.save()
+        with self.assertRaises(UserBannedError):
+            URLService.get_or_create_short_url(self.regular, "https://example.com")
+
+    def test_quota_exceeded(self):
+        for i in range(GUEST_QUOTA):  # guest quota = 5
+            URLService.get_or_create_short_url(self.guest, f"https://a{i}.com")
+        with self.assertRaises(QuotaExceededError):
+            URLService.get_or_create_short_url(self.guest, "https://new.com")
+
+    def test_expired_urls_dont_count_toward_quota(self):
+        # Fill quota with URLs that are already expired.
+        past = timezone.now() - timedelta(hours=1)
+        for i in range(5):
+            url, _ = URLService.get_or_create_short_url(self.guest, f"https://a{i}.com")
+            URLModel.objects.filter(pk=url.pk).update(expires_at=past)
+        # A new creation should succeed because no URLs are ACTIVE.
+        url, _ = URLService.get_or_create_short_url(self.guest, "https://new.com")
+        self.assertIsNotNone(url)
+
+    def test_get_url_by_code_expired(self):
+        url, _ = URLService.get_or_create_short_url(self.guest, "https://example.com")
+        URLModel.objects.filter(pk=url.pk).update(
+            expires_at=timezone.now() - timedelta(seconds=1)
+        )
+        with self.assertRaises(UrlExpiredError):
+            URLService.get_url_by_code(url.short_code)
 
 
 class BlocklistServiceTestCase(TestCase):

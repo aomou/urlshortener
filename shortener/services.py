@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
-from django.db.models import Count, QuerySet
+from django.db.models import Count, Q, QuerySet
 from django.http import HttpRequest
 from django.utils import timezone
 from django_user_agents.utils import get_user_agent
@@ -18,7 +18,14 @@ from sqids import Sqids
 
 from users.services import UserService
 
-from .exceptions import AccessDeniedError, UrlNotFoundError
+from .exceptions import (
+    AccessDeniedError,
+    BlockedDomainError,
+    QuotaExceededError,
+    UrlExpiredError,
+    UrlNotFoundError,
+    UserBannedError,
+)
 from .models import ClickLog, RateLimitEvent, URLModel
 
 BAN_THRESHOLD = 5
@@ -122,25 +129,53 @@ class URLService:
         Raises:
             ValidationError: URL 格式不正確
         """
-        # 驗證 URL 格式
+        # Check:
+        # 1. URL format
         validator = URLValidator()
         try:
             validator(original_url)
         except ValidationError:
             raise ValidationError("Invalid URL format") from None
 
-        # 查詢是否已存在相同的 (user, original_url) 組合
+        # 2. Ban
+        if user.profile.is_banned:
+            raise UserBannedError("User is banned")
+
+        # 3. Blocklist
+        if BlocklistService.is_blocked(original_url):
+            raise BlockedDomainError("Domain is blocked")
+
+        # 4. Dedup 查詢是否已存在相同的 (user, original_url) 組合
         existing_url = URLModel.objects.filter(
             user=user, original_url=original_url
         ).first()
 
-        # 如果已存在，返回現有 URL
-        if existing_url:
+        if existing_url:  # 如果已存在，返回現有 URL
             return (existing_url, False)
 
-        # 如果不存在，呼叫原有的 create_short_url 建立新 URL
-        new_url = URLService.create_short_url(user, original_url)
-        return (new_url, True)
+        # 5. Active quota
+        now = timezone.now()
+        active_count = (
+            URLModel.objects.filter(user=user)
+            .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+            .count()
+        )
+        quota = UserService.get_quota(user)
+        if active_count >= quota:
+            raise QuotaExceededError(f"已達配額上限 ({quota} 個）")
+
+        # 6. Lifetime -> expires_at
+        lifetime = UserService.get_url_lifetime(user)
+        expires_at = None if lifetime is None else now + lifetime
+
+        # 7. Create + Sqids encode
+        url_obj = URLModel.objects.create(
+            user=user, original_url=original_url, short_code="", expires_at=expires_at
+        )
+        url_obj.short_code = sqids.encode([user.id, url_obj.id])
+        url_obj.save()
+
+        return (url_obj, True)
 
     @staticmethod
     def get_url_by_code(code: str, check_active: bool = True) -> URLModel:
@@ -168,14 +203,19 @@ class URLService:
             # 查詢資料庫
             url_obj = URLModel.objects.get(id=url_id, user_id=user_id)
 
-            # 檢查 URL 是否啟用（僅在 check_active=True 時）
-            if check_active and not url_obj.is_active:
-                raise UrlNotFoundError(f"URL is inactive: {code}")
-
-            return url_obj
-
+        # 如果沒找到
         except (ValueError, URLModel.DoesNotExist):
             raise UrlNotFoundError(f"URL not found: {code}") from None
+
+        # 如果 URL 未啟用（僅在 check_active=True 時）
+        if check_active and not url_obj.is_active:
+            raise UrlNotFoundError(f"URL is inactive: {code}")
+
+        # 如果過期
+        if url_obj.expires_at is not None and url_obj.expires_at < timezone.now():
+            raise UrlExpiredError(f"URL expired: {code}")
+
+        return url_obj
 
     @staticmethod
     def get_user_urls(user: User) -> QuerySet[URLModel]:

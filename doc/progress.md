@@ -15,7 +15,10 @@
 - feat(shortener): add BlocklistService with local domain blocklist
 - feat(users): add UserService (guest creation, quota, lifetime, ban)
 - feat(shortener): add RateLimitService with auto-ban at 5 hits/10min
-
+- feat(shortener): enforce ban/blocklist/quota/expiry in URLService
+    - test_guest_url_expires_with_guest 測試先不加
+    - test_quota_exceeded 數字 5 改用 GUEST_QUOTA 
+- 把 lifetime 倒數時間邏輯改成 expired_at 絕對時間
 
 # To-do
 
