@@ -5,7 +5,7 @@
 {% block content %}
 <div class="card">
     <h2>Create Short URL</h2>
-    <form method="post" action="{% url 'my_urls' %}">
+    <form method="post" action="{% url 'shorten' %}">
         {% csrf_token %}
         <div class="form-group">
             <label for="original_url">Enter your long URL:</label>
@@ -17,6 +17,23 @@
         </div>
         <button type="submit" class="btn">Shorten URL</button>
     </form>
+    <p class="quota-status">
+        {% if quota_is_unlimited %}
+            Active URLs: {{ active_count }} (unlimited)
+        {% else %}
+            Active URLs: {{ active_count }} / {{ quota }}
+        {% endif %}
+    </p>
+    <p class="form-help">
+        {% if user.profile.is_guest %}
+            Your links will expire at {{ user.profile.expires_at|date:"Y-m-d H:i" }} (when your guest account is deleted).
+        {% elif user.is_staff %}
+            {# no help text for admin #}
+        {% else %}
+            Links expire 7 days after creation.
+        {% endif %}
+    </p>
+
 </div>
 
 <div class="card">
@@ -82,6 +99,15 @@
             <div class="url-meta">
                 <span>Created: {{ url.created_at|date:"Y-m-d H:i" }}</span>
                 <span>Clicks: {{ url.click_count }}</span>
+                <span>
+                    Expires:
+                    {% if url.expires_at %}
+                        {{ url.expires_at|date:"Y-m-d H:i" }}
+                    {% else %}
+                        Permanent
+                    {% endif %}
+                </span>
+
                 <div class="url-actions">
                     <a href="{% url 'url_stats' url.short_code %}" class="btn btn-small">Stats</a>
                     <form method="post" action="{% url 'toggle_url' url.id %}" style="display: inline;">

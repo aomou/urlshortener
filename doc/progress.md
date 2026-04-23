@@ -30,6 +30,7 @@
 
 - feat(templates): new homepage with Google + Guest login
 - feat(templates): show guest expiry in navbar; drop Facebook mentions
+- feat(templates): show quota + expiry on /my-urls/
 
 
 # To-do
