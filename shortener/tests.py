@@ -433,7 +433,7 @@ class ViewTestCase(TestCase):
         self.client.login(username="user1", password="pass123")
 
         response = self.client.post(
-            reverse("my_urls"), {"original_url": "https://www.example.com"}
+            reverse("shorten"), {"original_url": "https://www.example.com"}
         )
 
         # 應該重定向回我的網址頁
@@ -450,7 +450,7 @@ class ViewTestCase(TestCase):
         self.client.login(username="user1", password="pass123")
 
         response = self.client.post(
-            reverse("my_urls"), {"original_url": "not-a-valid-url"}
+            reverse("shorten"), {"original_url": "not-a-valid-url"}
         )
 
         # 應該重定向回我的網址頁
