@@ -20,6 +20,10 @@
     - test_quota_exceeded 數字 5 改用 GUEST_QUOTA 
 - fix: 把 lifetime 倒數時間邏輯改成 expired_at 絕對時間
 
+## phase 3 Views & URL routing
+
+- feat(users): add guest login view with IP rate limit
+
 # To-do
 
 改成自己的作品集

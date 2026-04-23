@@ -2,7 +2,7 @@ import re
 from datetime import timedelta
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.utils import timezone
 
 from .services import GOOGLE_QUOTA, GOOGLE_URL_LIFETIME, GUEST_QUOTA, UserService
@@ -67,3 +67,17 @@ class UserServiceTestCase(TestCase):
         UserService.ban_user(user)
         user.refresh_from_db()
         self.assertTrue(user.profile.is_banned)
+
+
+class GuestLoginViewTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+    def test_post_creates_guest_and_logs_in(self):
+        resp = self.client.post("/accounts/guest-login/")
+        self.assertRedirects(resp, "/my-urls/")
+        self.assertIn("_auth_user_id", self.client.session)
+
+    def test_get_is_method_not_allowed(self):
+        resp = self.client.get("/accounts/guest-login/")
+        self.assertEqual(resp.status_code, 405)
