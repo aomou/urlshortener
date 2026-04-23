@@ -32,10 +32,15 @@
 - feat(templates): show guest expiry in navbar; drop Facebook mentions
 - feat(templates): show quota + expiry on /my-urls/
 
+## phase 5 Cleanup management commands
+
+- feat(shortener): add cleanup_expired_urls management command
+
 
 # To-do
 
 fix: 訪客登入時不應該出現 log out 按鈕
+fix: 所有警告或說明文字都用英文顯示
 
 改成自己的作品集
 1. 移除 Facebook 登入功能

@@ -3,9 +3,11 @@ Tests for shortener app
 """
 
 from datetime import timedelta
+from io import StringIO
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -920,3 +922,17 @@ class RateLimitServiceTestCase(TestCase):
         RateLimitService.register_hit(self.user)
         self.user.refresh_from_db()
         self.assertFalse(self.user.profile.is_banned)
+
+
+class CleanupExpiredUrlsTestCase(TestCase):
+    def test_deletes_only_expired(self):
+        user = User.objects.create_user(username="u")
+        fresh, _ = URLService.get_or_create_short_url(user, "https://a.com")
+        stale, _ = URLService.get_or_create_short_url(user, "https://b.com")
+        URLModel.objects.filter(pk=stale.pk).update(
+            expires_at=timezone.now() - timedelta(hours=1)
+        )
+        out = StringIO()
+        call_command("cleanup_expired_urls", stdout=out)
+        self.assertTrue(URLModel.objects.filter(pk=fresh.pk).exists())
+        self.assertFalse(URLModel.objects.filter(pk=stale.pk).exists())
