@@ -13,6 +13,7 @@ A URL shortener service built with Django, featuring OAuth login and click track
 - Enable/disable URLs for temporary deactivation
 - Click tracking with basic statistics (total clicks)
 - Filter and sort URLs by status and creation date
+- Try as guest mode (24h temporary account with usage limits)
 
 ## Live Demo
 Coming soon
@@ -114,7 +115,7 @@ Visit `http://127.0.0.1:8000` to see the application.
 
 For OAuth login functionality:
 1. Get credentials from [Google Cloud Console](https://console.cloud.google.com/)
-2. Configure redirect URI in OAuth provider console: `http://127.0.0.1:8000/accounts/{provider}/login/callback/`
+2. Configure redirect URI in Google Cloud Console: `http://127.0.0.1:8000/accounts/google/login/callback/`
 3. Add credentials to `.env` (see `.env.example` for format)
 
 ## 🧪 Testing
@@ -122,6 +123,14 @@ For OAuth login functionality:
 ```bash
 uv run python manage.py test
 ```
+
+## Cleanup
+
+- `uv run python manage.py cleanup_expired_urls`
+- `uv run python manage.py cleanup_expired_guests`
+
+These commands remove expired short URLs and expired guest accounts.
+Scheduling/automation (cron) is planned for Batch 3 during VPS deployment.
 
 ## 📁 Project Structure
 

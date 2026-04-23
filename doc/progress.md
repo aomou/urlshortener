@@ -35,7 +35,7 @@ phase 5 Cleanup management commands
 phase 6 Settins, Admin, Docs
 - 6.1 chore: set TIME_ZONE=Asia/Taipei
 - test: update POST endpoint from my_urls to shorten
-
+- 6.2 docs: document guest mode and Facebook removal
 
 # To-do
 
