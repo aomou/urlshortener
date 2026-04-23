@@ -29,6 +29,7 @@
 ## phase 4 Templates
 
 - feat(templates): new homepage with Google + Guest login
+- feat(templates): show guest expiry in navbar; drop Facebook mentions
 
 
 # To-do

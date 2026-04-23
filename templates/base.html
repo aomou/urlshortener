@@ -17,14 +17,20 @@
             <h1><a href="{% url 'home' %}">URL Shortener</a></h1>
             {% if user.is_authenticated %}
             <div class="user-info">
-                <span>
-                    {{ user.email|default:user.username }}{% for account in user.socialaccount_set.all %} ({{ account.provider|title }}){% endfor %}
+            {% if user.profile.is_guest %}
+                <span title="Your account and URLs will be deleted at expiry">
+                Guest • expires {{ user.profile.expires_at|date:"Y-m-d H:i" }}
                 </span>
-                <a href="{% url 'my_urls' %}" class="btn btn-secondary">My URLs</a>
-                <form method="post" action="{% url 'account_logout' %}" class="logout-form">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-secondary">Logout</button>
-                </form>
+            {% else %}
+                <span>
+                {{ user.email|default:user.username }}{% for account in user.socialaccount_set.all %} ({{ account.provider|title }}){% endfor %}
+                </span>
+            {% endif %}
+            <a href="{% url 'my_urls' %}" class="btn btn-secondary">My URLs</a>
+            <form method="post" action="{% url 'account_logout' %}" class="logout-form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary">Logout</button>
+            </form>
             </div>
             {% endif %}
         </div>
