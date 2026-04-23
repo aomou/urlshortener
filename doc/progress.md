@@ -23,6 +23,7 @@
 ## phase 3 Views & URL routing
 
 - feat(users): add guest login view with IP rate limit
+- feat(shortener): extract shorten view, wire rate limit + policy exceptions
 
 # To-do
 

@@ -5,11 +5,23 @@ Views 層：處理 HTTP 請求和回應
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.utils import timezone
+from django_ratelimit.decorators import ratelimit
 
-from .exceptions import AccessDeniedError, UrlNotFoundError
-from .services import AnalyticsService, URLService
+from users.services import UserService
+
+from .exceptions import (
+    AccessDeniedError,
+    BlockedDomainError,
+    QuotaExceededError,
+    UrlNotFoundError,
+    UserBannedError,
+)
+from .models import URLModel
+from .services import AnalyticsService, RateLimitService, URLService
 
 
 def home_view(request: HttpRequest) -> HttpResponse:
@@ -26,39 +38,59 @@ def home_view(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@ratelimit(key="user", rate="5/m", block=False)
+def shorten_view(request: HttpRequest) -> HttpResponse:
+    """
+    縮短網址
+
+    POST-only endpoint
+    """
+    if request.method != "POST":
+        return redirect("my_urls")
+
+    if getattr(request, "limited", False):
+        RateLimitService.register_hit(request.user, request)
+        # After register_hit the user might now be banned; either way show 429
+        return render(request, "shortener/rate_limited.html", status=429)
+
+    original_url = request.POST.get("original_url", "").strip()
+    if not original_url:
+        messages.error(request, "Please enter a URL")
+        return redirect("my_urls")
+
+    try:
+        url_obj, created = URLService.get_or_create_short_url(
+            request.user, original_url
+        )
+        short_url = f"{request.build_absolute_uri('/')}{url_obj.short_code}/"
+        msg = (
+            f"Short URL created: {short_url}"
+            if created
+            else f"You've already shortened this URL: {short_url}"
+        )
+        (messages.success if created else messages.warning)(request, msg)
+    except ValidationError as e:
+        messages.error(request, str(e))
+    except BlockedDomainError:
+        messages.error(request, "此網域不允許縮短")
+    except QuotaExceededError as e:
+        messages.error(request, str(e))
+    except UserBannedError:
+        from django.contrib.auth import logout as auth_logout
+
+        auth_logout(request)
+        return render(request, "users/banned.html", status=403)
+
+    return redirect("my_urls")
+
+
+@login_required
 def my_urls_view(request: HttpRequest) -> HttpResponse:
     """
     我的網址頁
 
-    GET: 顯示使用者的所有短網址
-    POST: 建立新的短網址
+    GET-only endpoint 顯示使用者的所有短網址
     """
-    if request.method == "POST":
-        original_url = request.POST.get("original_url", "").strip()
-
-        if not original_url:
-            messages.error(request, "Please enter a URL")
-        else:
-            try:
-                # 建立或回傳已建立的短網址
-                url_obj, created = URLService.get_or_create_short_url(
-                    request.user, original_url
-                )
-                short_url = f"{request.build_absolute_uri('/')}{url_obj.short_code}/"
-
-                # 根據 created 旗標顯示不同訊息
-                if created:
-                    messages.success(request, f"Short URL created: {short_url}")
-                else:
-                    messages.warning(
-                        request, f"You've already shortened this URL: {short_url}"
-                    )
-
-            except ValidationError as e:
-                messages.error(request, str(e))
-
-        return redirect("my_urls")
-
     # GET: 取得篩選參數
     status = request.GET.get("status", "all")
     sort_by = request.GET.get("sort_by", "created_at")
@@ -72,11 +104,23 @@ def my_urls_view(request: HttpRequest) -> HttpResponse:
         sort_order=order,
     )
 
+    now = timezone.now()
+    active_count = (
+        URLModel.objects.filter(user=request.user)
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+        .count()
+    )
+    quota = UserService.get_quota(request.user)
+
     context = {
         "urls": urls,
         "current_status": status,
         "current_sort_by": sort_by,
         "current_order": order,
+        "active_count": active_count,
+        "quota": quota,
+        "quota_is_unlimited": quota == float("inf"),
+        "url_expires_at": UserService.get_url_expires_at(request.user),
     }
     return render(request, "shortener/my_urls.html", context)
 

@@ -549,8 +549,29 @@ class ViewTestCase(TestCase):
         self.assertNotContains(response, "example2.com")
 
 
+class ShortenViewTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="alice", password="pw1928374")
+        self.client = Client()
+        self.client.login(username="alice", password="pw1928374")
+
+    def test_blocked_domain_shows_error(self):
+        resp = self.client.post(
+            "/shorten/", {"original_url": "https://bit.ly/x"}, follow=True
+        )
+        self.assertContains(resp, "不允許")
+
+    def test_banned_user_gets_403(self):
+        self.user.profile.is_banned = True
+        self.user.profile.save()
+        resp = self.client.post("/shorten/", {"original_url": "https://ok.com"})
+        self.assertEqual(resp.status_code, 403)
+
+
 class URLToggleAndFilterTestCase(TestCase):
     """URL Toggle 和 Filter/Sort 功能測試"""
+
+    # TODO 應該分開寫在不同測試 class
 
     def setUp(self):
         """建立測試資料"""
