@@ -94,7 +94,7 @@
     /* Font Sizes */
     --font-size-xs: 11px;
     --font-size-sm: 12px;
-    --font-size-base: 14px;
+    --font-size-base: 15px;
     --font-size-md: 15px;
     --font-size-lg: 16px;
     --font-size-xl: 18px;
@@ -110,7 +110,7 @@
 
     /* Line Heights */
     --line-height-tight: 1.5;
-    --line-height-normal: 1.6;
+    --line-height-normal: 1.7;
     --line-height-relaxed: 2;
 
     /* ==================== */
@@ -149,7 +149,8 @@
     /* ==================== */
 
     /* Shadows */
-    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 
     /* Transitions */
     --transition-fast: 0.15s;
@@ -240,10 +241,14 @@ header h1 a:hover {
     border: none;
     cursor: pointer;
     font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
     font-family: inherit;
     line-height: var(--line-height-tight);
     vertical-align: middle;
-    transition: var(--transition-bg);
+
+    letter-spacing: 0.3px;
+    transition: all var(--transition-base) cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
 }
 
 .btn:hover {
@@ -416,8 +421,14 @@ table tr:hover {
 
 .login-buttons {
     display: flex;
-    gap: 15px;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
     justify-content: center;
+}
+
+.guest-form {
+    margin: 0;
 }
 
 /* Stats Page */
@@ -481,6 +492,9 @@ table tr:hover {
 
 .features-list {
     line-height: var(--line-height-relaxed);
+    list-style: none;
+    display: grid;
+    gap: 5px;
 }
 
 /* Footer */
@@ -502,7 +516,7 @@ footer {
 }
 
 .admin-login-link {
-    margin-top: 20px;
+    margin-top: 10px;
     text-align: center;
 }
 
@@ -515,6 +529,41 @@ footer {
 .admin-login-link a:hover {
     color: var(--color-text-secondary);
     text-decoration: underline;
+}
+
+.guest-link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-base);
+    text-decoration: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.guest-link-btn:hover {
+    color: var(--color-text-secondary);
+    text-decoration: underline;
+}
+
+.account-policy-note {
+    margin: 18px auto 0;
+    max-width: 560px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+}
+
+.account-policy-note p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    line-height: var(--line-height-relaxed);
+}
+
+.account-policy-note p + p {
+    margin-top: 4px;
 }
 
 /* Privacy note */

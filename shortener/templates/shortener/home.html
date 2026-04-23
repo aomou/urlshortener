@@ -3,20 +3,30 @@
 {% block title %}Home - URL Shortener{% endblock %}
 
 {% block content %}
-<div class="hero">
+<section class="hero">
     <h1>URL Shortener</h1>
-    <p>Create short, memorable links in seconds</p>
+    <p>Create short links and track clicks</p>
 
     <div class="login-buttons">
         <a href="{% url 'google_login' %}" class="btn btn-large">
             Login with Google
         </a>
+
+        <form method="post" action="{% url 'guest_login' %}" class="guest-form">
+            {% csrf_token %}
+            <button type="submit" class="guest-link-btn">Try as Guest (24h)</button>
+        </form>
     </div>
 
     <div class="admin-login-link">
         <a href="{% url 'admin:index' %}">Admin Sign In</a>
     </div>
-</div>
+
+    <div class="account-policy-note">
+        <p>Guest accounts and their links are deleted 24 hours after creation.</p>
+        <p>Google-logged-in users' links expire after 7 days.</p>
+    </div>
+</section>
 
 <div class="card">
     <h2>Features</h2>

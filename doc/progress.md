@@ -26,6 +26,11 @@
 - feat(shortener): extract shorten view, wire rate limit + policy exceptions
 - feat(shortener): render expired page instead of redirecting past-expiry links
 
+## phase 4 Templates
+
+- feat(templates): new homepage with Google + Guest login
+
+
 # To-do
 
 改成自己的作品集
@@ -35,9 +40,9 @@
     - URL 黑名單
     - 每日清理 job
 
-
-3. 新增 API
-4. VPS 部署設定
+3. UI improve
+4. 新增 API endpoint
+5. VPS 部署設定
     - cronjob 自動刪除過期 URL + 訪客帳號
 
 未來可加
