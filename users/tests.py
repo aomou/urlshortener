@@ -2,8 +2,12 @@ import re
 from datetime import timedelta
 
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.test import Client, TestCase
 from django.utils import timezone
+
+from shortener.models import ClickLog, URLModel
+from shortener.services import URLService
 
 from .services import GOOGLE_QUOTA, GOOGLE_URL_LIFETIME, GUEST_QUOTA, UserService
 
@@ -81,3 +85,18 @@ class GuestLoginViewTestCase(TestCase):
     def test_get_is_method_not_allowed(self):
         resp = self.client.get("/accounts/guest-login/")
         self.assertEqual(resp.status_code, 405)
+
+
+class CleanupExpiredGuestsTestCase(TestCase):
+    def test_deletes_expired_guest_and_cascades(self):
+        guest = UserService.create_guest_user()
+        url, _ = URLService.get_or_create_short_url(guest, "https://x.com")
+        ClickLog.objects.create(url=url, ip_address="1.1.1.1")
+        # Backdate profile to expired
+        guest.profile.expires_at = timezone.now() - timedelta(minutes=1)
+        guest.profile.save()
+
+        call_command("cleanup_expired_guests")
+        self.assertFalse(User.objects.filter(pk=guest.pk).exists())
+        self.assertFalse(URLModel.objects.filter(pk=url.pk).exists())
+        self.assertEqual(ClickLog.objects.count(), 0)
