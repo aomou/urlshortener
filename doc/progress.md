@@ -24,6 +24,7 @@
 
 - feat(users): add guest login view with IP rate limit
 - feat(shortener): extract shorten view, wire rate limit + policy exceptions
+- feat(shortener): render expired page instead of redirecting past-expiry links
 
 # To-do
 

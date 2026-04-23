@@ -17,6 +17,7 @@ from .exceptions import (
     AccessDeniedError,
     BlockedDomainError,
     QuotaExceededError,
+    UrlExpiredError,
     UrlNotFoundError,
     UserBannedError,
 )
@@ -194,15 +195,13 @@ def redirect_view(request: HttpRequest, code: str) -> HttpResponse:
     try:
         # 取得 URL 物件
         url_obj = URLService.get_url_by_code(code)
-
-        # 記錄點擊
-        AnalyticsService.record_click(url_obj, request)
-
-        # 302 重定向到原網址
-        return redirect(url_obj.original_url)
-
     except UrlNotFoundError:
         return render(request, "shortener/404.html", status=404)
+    except UrlExpiredError:
+        return render(request, "shortener/expired.html", status=200)
+
+    AnalyticsService.record_click(url_obj, request)  # 記錄點擊
+    return redirect(url_obj.original_url)  # 302 重定向到原網址
 
 
 def health_check(request: HttpRequest) -> JsonResponse:

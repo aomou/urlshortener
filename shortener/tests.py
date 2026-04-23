@@ -260,6 +260,20 @@ class URLServicePolicyTestCase(TestCase):
         with self.assertRaises(UrlExpiredError):
             URLService.get_url_by_code(url.short_code)
 
+    def test_expired_url_shows_expired_page_no_click(self):
+        user = User.objects.create_user(username="u")
+        # Must use the real sqids short_code — create via service instead:
+        from shortener.services import URLService
+
+        url, _ = URLService.get_or_create_short_url(user, "https://another.com")
+        URLModel.objects.filter(pk=url.pk).update(
+            expires_at=timezone.now() - timedelta(hours=1)
+        )
+        resp = self.client.get(f"/{url.short_code}/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "shortener/expired.html")
+        self.assertEqual(ClickLog.objects.filter(url=url).count(), 0)
+
 
 class BlocklistServiceTestCase(TestCase):
     def test_blocked_domain(self):
