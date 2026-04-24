@@ -27,10 +27,12 @@
                 </span>
             {% endif %}
             <a href="{% url 'my_urls' %}" class="btn btn-secondary">My URLs</a>
+            {% if not user.profile.is_guest %}
             <form method="post" action="{% url 'account_logout' %}" class="logout-form">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-secondary">Logout</button>
             </form>
+            {% endif %}
             </div>
             {% endif %}
         </div>

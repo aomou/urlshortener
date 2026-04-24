@@ -87,6 +87,34 @@ class GuestLoginViewTestCase(TestCase):
         self.assertEqual(resp.status_code, 405)
 
 
+class GuestExpiryMiddlewareTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+    def test_expired_guest_is_logged_out_and_redirected(self):
+        guest = UserService.create_guest_user()
+        self.client.force_login(guest)
+        # Backdate profile to expired
+        guest.profile.expires_at = timezone.now() - timedelta(minutes=1)
+        guest.profile.save()
+
+        resp = self.client.get("/my-urls/")
+        self.assertRedirects(resp, "/")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_active_guest_not_affected(self):
+        guest = UserService.create_guest_user()
+        self.client.force_login(guest)
+        resp = self.client.get("/my-urls/")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_regular_user_not_affected(self):
+        user = User.objects.create_user(username="alice", password="pw1928374")
+        self.client.force_login(user)
+        resp = self.client.get("/my-urls/")
+        self.assertEqual(resp.status_code, 200)
+
+
 class CleanupExpiredGuestsTestCase(TestCase):
     def test_deletes_expired_guest_and_cascades(self):
         guest = UserService.create_guest_user()

@@ -36,6 +36,8 @@ phase 6 Settins, Admin, Docs
 - test: update POST endpoint from my_urls to shorten
 - 6.2 docs: document guest mode and Facebook removal
 
+fix: 訪客登入時不應該出現 log out 按鈕 -> 加 middleware
+
 # To-do
 
 dockerize
@@ -43,7 +45,6 @@ dockerize
 - 檢查 .env, .env.production
 - 改 settings
 
-fix: 訪客登入時不應該出現 log out 按鈕
 fix: 所有警告或說明文字都用英文顯示
 
 - VPS 部署設定
