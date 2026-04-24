@@ -14,7 +14,6 @@ phase 2 domain service
 - 2.3 feat(users): add UserService (guest creation, quota, lifetime, ban)
 - 2.4 feat(shortener): add RateLimitService with auto-ban at 5 hits/10min
 - 2.5 feat(shortener): enforce ban/blocklist/quota/expiry in URLService
-    - test_guest_url_expires_with_guest 測試先不加
     - test_quota_exceeded 數字 5 改用 GUEST_QUOTA 
 - fix: 把 lifetime 倒數時間邏輯改成 expired_at 絕對時間
 
@@ -39,20 +38,21 @@ phase 6 Settins, Admin, Docs
 
 # To-do
 
+dockerize
+- Add Docekrfile, docker-compose.yml, .dockerignore, deploy.sh
+- 檢查 .env, .env.production
+- 改 settings
+
 fix: 訪客登入時不應該出現 log out 按鈕
 fix: 所有警告或說明文字都用英文顯示
 
-改成自己的作品集
-1. 移除 Facebook 登入功能
-2. 新增訪客模式 but 限制流量
-    - Rate limit 
-    - URL 黑名單
-    - 每日清理 job
-
-3. UI improve
-4. 新增 API endpoint
-5. VPS 部署設定
+- VPS 部署設定
+    - 改用 Nginx
     - cronjob 自動刪除過期 URL + 訪客帳號
+    - 重新申請一組 Google Client key
+
+- 新增 API endpoint
+- UI improve
 
 未來可加
 - 作成 Telegram Bot 自用

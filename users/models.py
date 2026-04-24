@@ -14,5 +14,5 @@ class UserProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        role = "guest" if self.is_guest else ("baned" if self.is_banned else "user")
+        role = "guest" if self.is_guest else ("banned" if self.is_banned else "user")
         return f"{self.user.username} ({role})"

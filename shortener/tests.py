@@ -247,7 +247,7 @@ class URLServicePolicyTestCase(TestCase):
     def test_expired_urls_dont_count_toward_quota(self):
         # Fill quota with URLs that are already expired.
         past = timezone.now() - timedelta(hours=1)
-        for i in range(5):
+        for i in range(GUEST_QUOTA):
             url, _ = URLService.get_or_create_short_url(self.guest, f"https://a{i}.com")
             URLModel.objects.filter(pk=url.pk).update(expires_at=past)
         # A new creation should succeed because no URLs are ACTIVE.
