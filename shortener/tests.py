@@ -8,7 +8,7 @@ from io import StringIO
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
-from django.test import Client, RequestFactory, TestCase
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -26,9 +26,30 @@ from .exceptions import AccessDeniedError, UrlNotFoundError
 from .models import ClickLog, URLModel
 from .services import AnalyticsService, BlocklistService, URLService
 
+# ============================================================
+# Model Layer
+# ============================================================
+
+
+class URLModelTestCase(TestCase):
+    """URLModel 欄位測試"""
+
+    def test_urlmodel_expires_at_nullable(self):
+        """測試 URLModel 的 expires_at 是否可為空"""
+        user = User.objects.create_user(username="user1", password="pass123")
+        url = URLModel.objects.create(
+            user=user, original_url="https://x.com", short_code="abc123"
+        )
+        self.assertIsNone(url.expires_at)
+
+
+# ============================================================
+# Service Layer
+# ============================================================
+
 
 class URLServiceTestCase(TestCase):
-    """URLService 測試"""
+    """URLService 基本 CRUD 測試"""
 
     def setUp(self):
         """建立測試資料"""
@@ -201,15 +222,10 @@ class URLServiceTestCase(TestCase):
         with self.assertRaises(ValidationError):
             URLService.get_or_create_short_url(self.user1, "")
 
-    def test_urlmodel_expires_at_nullable(self):
-        """測試 URLModel 的 expires_at 是否可為空"""
-        url = URLModel.objects.create(
-            user=self.user1, original_url="https://x.com", short_code="abc123"
-        )
-        self.assertIsNone(url.expires_at)
-
 
 class URLServicePolicyTestCase(TestCase):
+    """URLService 的 policy（quota / expiry / ban / blocklist）"""
+
     def setUp(self):
         self.guest = UserService.create_guest_user()
         self.regular = User.objects.create_user(username="alice")
@@ -262,19 +278,177 @@ class URLServicePolicyTestCase(TestCase):
         with self.assertRaises(UrlExpiredError):
             URLService.get_url_by_code(url.short_code)
 
-    def test_expired_url_shows_expired_page_no_click(self):
-        user = User.objects.create_user(username="u")
-        # Must use the real sqids short_code — create via service instead:
-        from shortener.services import URLService
 
-        url, _ = URLService.get_or_create_short_url(user, "https://another.com")
-        URLModel.objects.filter(pk=url.pk).update(
-            expires_at=timezone.now() - timedelta(hours=1)
+class URLToggleServiceTestCase(TestCase):
+    """URLService toggle / check_active 測試"""
+
+    def setUp(self):
+        self.user1 = User.objects.create_user(username="user1", password="pass123")
+        self.user2 = User.objects.create_user(username="user2", password="pass123")
+        self.url1 = URLService.create_short_url(self.user1, "https://zzz-example.com")
+
+    def test_toggle_active_to_inactive(self):
+        """測試切換 URL 從啟用到停用"""
+        self.assertTrue(self.url1.is_active)
+
+        toggled = URLService.toggle_url_status(self.url1.id, self.user1)
+
+        self.assertFalse(toggled.is_active)
+        self.url1.refresh_from_db()
+        self.assertFalse(self.url1.is_active)
+
+    def test_toggle_inactive_to_active(self):
+        """測試切換 URL 從停用到啟用"""
+        self.url1.is_active = False
+        self.url1.save()
+
+        toggled = URLService.toggle_url_status(self.url1.id, self.user1)
+
+        self.assertTrue(toggled.is_active)
+        self.url1.refresh_from_db()
+        self.assertTrue(self.url1.is_active)
+
+    def test_toggle_non_owner(self):
+        """測試非擁有者無法 toggle"""
+        with self.assertRaises(AccessDeniedError):
+            URLService.toggle_url_status(self.url1.id, self.user2)
+
+        self.url1.refresh_from_db()
+        self.assertTrue(self.url1.is_active)
+
+    def test_toggle_not_found(self):
+        """測試 toggle 不存在的 URL"""
+        with self.assertRaises(UrlNotFoundError):
+            URLService.toggle_url_status(99999, self.user1)
+
+    def test_check_active_true_for_inactive_url(self):
+        """測試 check_active=True 時停用的 URL 拋出異常"""
+        self.url1.is_active = False
+        self.url1.save()
+
+        with self.assertRaises(UrlNotFoundError):
+            URLService.get_url_by_code(self.url1.short_code, check_active=True)
+
+    def test_check_active_false_for_inactive_url(self):
+        """測試 check_active=False 時停用的 URL 可以取得"""
+        self.url1.is_active = False
+        self.url1.save()
+
+        url_obj = URLService.get_url_by_code(self.url1.short_code, check_active=False)
+
+        self.assertEqual(url_obj.id, self.url1.id)
+        self.assertFalse(url_obj.is_active)
+
+    def test_check_active_true_for_active_url(self):
+        """測試 check_active=True 時啟用的 URL 正常取得"""
+        url_obj = URLService.get_url_by_code(self.url1.short_code, check_active=True)
+
+        self.assertEqual(url_obj.id, self.url1.id)
+        self.assertTrue(url_obj.is_active)
+
+
+class URLFilterSortServiceTestCase(TestCase):
+    """URLService filter / sort 測試"""
+
+    def setUp(self):
+        self.user1 = User.objects.create_user(username="user1", password="pass123")
+        self.url1 = URLService.create_short_url(self.user1, "https://zzz-example.com")
+        self.url2 = URLService.create_short_url(self.user1, "https://aaa-example.com")
+        self.url3 = URLService.create_short_url(self.user1, "https://mmm-example.com")
+
+    def test_filter_by_status_active(self):
+        """測試篩選啟用的 URL"""
+        self.url2.is_active = False
+        self.url2.save()
+
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, status_filter="active"
         )
-        resp = self.client.get(f"/{url.short_code}/")
-        self.assertEqual(resp.status_code, 200)
-        self.assertTemplateUsed(resp, "shortener/expired.html")
-        self.assertEqual(ClickLog.objects.filter(url=url).count(), 0)
+
+        self.assertEqual(urls.count(), 2)
+        url_ids = [url.id for url in urls]
+        self.assertIn(self.url1.id, url_ids)
+        self.assertNotIn(self.url2.id, url_ids)
+        self.assertIn(self.url3.id, url_ids)
+
+    def test_filter_by_status_inactive(self):
+        """測試篩選停用的 URL"""
+        self.url1.is_active = False
+        self.url1.save()
+        self.url2.is_active = False
+        self.url2.save()
+
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, status_filter="inactive"
+        )
+
+        self.assertEqual(urls.count(), 2)
+        url_ids = [url.id for url in urls]
+        self.assertIn(self.url1.id, url_ids)
+        self.assertIn(self.url2.id, url_ids)
+        self.assertNotIn(self.url3.id, url_ids)
+
+    def test_filter_by_status_all(self):
+        """測試顯示全部 URL（不篩選狀態）"""
+        self.url2.is_active = False
+        self.url2.save()
+
+        urls = URLService.get_filtered_urls_with_stats(self.user1, status_filter=None)
+
+        self.assertEqual(urls.count(), 3)
+
+    def test_sort_by_created_at_desc(self):
+        """測試按建立時間降序排序"""
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, sort_by="created_at", sort_order="desc"
+        )
+
+        # url3 是最後建立的，應該排第一
+        self.assertEqual(urls[0].id, self.url3.id)
+        self.assertEqual(urls[2].id, self.url1.id)
+
+    def test_sort_by_created_at_asc(self):
+        """測試按建立時間升序排序"""
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, sort_by="created_at", sort_order="asc"
+        )
+
+        # url1 是最早建立的，應該排第一
+        self.assertEqual(urls[0].id, self.url1.id)
+        self.assertEqual(urls[2].id, self.url3.id)
+
+    def test_sort_by_original_url_asc(self):
+        """測試按原始網址升序排序"""
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, sort_by="original_url", sort_order="asc"
+        )
+
+        self.assertEqual(urls[0].original_url, "https://aaa-example.com")
+        self.assertEqual(urls[1].original_url, "https://mmm-example.com")
+        self.assertEqual(urls[2].original_url, "https://zzz-example.com")
+
+    def test_sort_by_original_url_desc(self):
+        """測試按原始網址降序排序"""
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, sort_by="original_url", sort_order="desc"
+        )
+
+        self.assertEqual(urls[0].original_url, "https://zzz-example.com")
+        self.assertEqual(urls[1].original_url, "https://mmm-example.com")
+        self.assertEqual(urls[2].original_url, "https://aaa-example.com")
+
+    def test_combined_filter_and_sort(self):
+        """測試組合篩選和排序"""
+        self.url1.is_active = False
+        self.url1.save()
+
+        urls = URLService.get_filtered_urls_with_stats(
+            self.user1, status_filter="active", sort_by="original_url", sort_order="asc"
+        )
+
+        self.assertEqual(urls.count(), 2)
+        self.assertEqual(urls[0].original_url, "https://aaa-example.com")
+        self.assertEqual(urls[1].original_url, "https://mmm-example.com")
 
 
 class BlocklistServiceTestCase(TestCase):
@@ -354,7 +528,6 @@ class AnalyticsServiceTestCase(TestCase):
 
     def test_get_url_stats(self):
         """測試取得統計資料"""
-        # 建立多筆點擊記錄
         request = self.factory.get(f"/{self.url_obj.short_code}/")
         request.META["REMOTE_ADDR"] = "192.168.1.100"
 
@@ -396,506 +569,6 @@ class AnalyticsServiceTestCase(TestCase):
         self.assertEqual(stats["clicks"][0]["ip_address"], "192.168.1.0")
 
 
-class ViewTestCase(TestCase):
-    """View 層測試"""
-
-    def setUp(self):
-        """建立測試資料"""
-        self.user1 = User.objects.create_user(username="user1", password="pass123")
-        self.user2 = User.objects.create_user(username="user2", password="pass123")
-        self.client = Client()
-
-    def test_home_view(self):
-        """測試首頁"""
-        response = self.client.get(reverse("home"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "URL Shortener")
-
-    def test_my_urls_view_requires_login(self):
-        """測試我的網址頁需要登入"""
-        response = self.client.get(reverse("my_urls"))
-
-        # 應該重定向到登入頁
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith("/?next="))
-
-    def test_my_urls_view_authenticated(self):
-        """測試已登入使用者可以訪問我的網址頁"""
-        self.client.login(username="user1", password="pass123")
-        response = self.client.get(reverse("my_urls"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "My URLs")
-
-    def test_create_short_url(self):
-        """測試建立短網址"""
-        self.client.login(username="user1", password="pass123")
-
-        response = self.client.post(
-            reverse("shorten"), {"original_url": "https://www.example.com"}
-        )
-
-        # 應該重定向回我的網址頁
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("my_urls"))
-
-        # 確認 URL 已建立
-        urls = URLModel.objects.filter(user=self.user1)
-        self.assertEqual(urls.count(), 1)
-        self.assertEqual(urls[0].original_url, "https://www.example.com")
-
-    def test_create_short_url_invalid(self):
-        """測試建立無效的短網址"""
-        self.client.login(username="user1", password="pass123")
-
-        response = self.client.post(
-            reverse("shorten"), {"original_url": "not-a-valid-url"}
-        )
-
-        # 應該重定向回我的網址頁
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("my_urls"))
-
-        # Follow redirect 並檢查錯誤訊息
-        response = self.client.get(response.url)
-        self.assertEqual(response.status_code, 200)
-        # 檢查 messages 中是否包含錯誤訊息
-        messages_list = list(response.context["messages"])
-        self.assertTrue(
-            any(
-                "Invalid URL format" in str(m) or "Enter a valid URL" in str(m)
-                for m in messages_list
-            )
-        )
-
-    def test_redirect_view_success(self):
-        """測試短網址重定向"""
-        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
-
-        response = self.client.get(reverse("redirect", args=[url_obj.short_code]))
-
-        # 應該是 302 重定向
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, "https://www.example.com")
-
-        # 確認點擊已記錄
-        self.assertEqual(ClickLog.objects.filter(url=url_obj).count(), 1)
-
-    def test_redirect_view_not_found(self):
-        """測試不存在的短網址"""
-        response = self.client.get(reverse("redirect", args=["invalid_code"]))
-
-        self.assertEqual(response.status_code, 404)
-
-    def test_url_stats_view_requires_login(self):
-        """測試統計頁需要登入"""
-        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
-
-        response = self.client.get(reverse("url_stats", args=[url_obj.short_code]))
-
-        # 應該重定向到登入頁
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith("/?next="))
-
-    def test_url_stats_view_owner_access(self):
-        """測試擁有者可以訪問統計頁"""
-        self.client.login(username="user1", password="pass123")
-        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
-
-        response = self.client.get(reverse("url_stats", args=[url_obj.short_code]))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "URL Statistics")
-        self.assertContains(response, url_obj.original_url)
-
-    def test_url_stats_view_non_owner_denied(self):
-        """測試非擁有者無法訪問統計頁"""
-        self.client.login(username="user2", password="pass123")
-        url_obj = URLService.create_short_url(self.user1, "https://www.example.com")
-
-        response = self.client.get(reverse("url_stats", args=[url_obj.short_code]))
-
-        # 應該重定向回我的網址頁
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("my_urls"))
-
-        # Follow redirect 並檢查錯誤訊息
-        response = self.client.get(response.url)
-        self.assertEqual(response.status_code, 200)
-        messages_list = list(response.context["messages"])
-        self.assertTrue(
-            any(
-                "You do not have permission to view this URL" in str(m)
-                for m in messages_list
-            )
-        )
-
-    def test_url_stats_view_not_found(self):
-        """測試統計頁不存在的短碼"""
-        self.client.login(username="user1", password="pass123")
-
-        response = self.client.get(reverse("url_stats", args=["invalid_code"]))
-
-        # 應該重定向回我的網址頁
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("my_urls"))
-
-        # Follow redirect 並檢查錯誤訊息
-        response = self.client.get(response.url)
-        self.assertEqual(response.status_code, 200)
-        messages_list = list(response.context["messages"])
-        self.assertTrue(any("Short URL not found" in str(m) for m in messages_list))
-
-    def test_user_isolation(self):
-        """測試使用者資料隔離"""
-        self.client.login(username="user1", password="pass123")
-
-        # user1 建立 URL
-        URLService.create_short_url(self.user1, "https://example1.com")
-
-        # user2 建立 URL
-        URLService.create_short_url(self.user2, "https://example2.com")
-
-        # user1 訪問我的網址頁
-        response = self.client.get(reverse("my_urls"))
-
-        # 應該只看到自己的 URL
-        self.assertContains(response, "example1.com")
-        self.assertNotContains(response, "example2.com")
-
-
-class ShortenViewTestCase(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(username="alice", password="pw1928374")
-        self.client = Client()
-        self.client.login(username="alice", password="pw1928374")
-
-    def test_blocked_domain_shows_error(self):
-        resp = self.client.post(
-            "/shorten/", {"original_url": "https://bit.ly/x"}, follow=True
-        )
-        self.assertContains(resp, "不允許")
-
-    def test_banned_user_gets_403(self):
-        self.user.profile.is_banned = True
-        self.user.profile.save()
-        resp = self.client.post("/shorten/", {"original_url": "https://ok.com"})
-        self.assertEqual(resp.status_code, 403)
-
-
-class URLToggleAndFilterTestCase(TestCase):
-    """URL Toggle 和 Filter/Sort 功能測試"""
-
-    # TODO 應該分開寫在不同測試 class
-
-    def setUp(self):
-        """建立測試資料"""
-        self.user1 = User.objects.create_user(username="user1", password="pass123")
-        self.user2 = User.objects.create_user(username="user2", password="pass123")
-        self.client = Client()
-
-        # 建立多個測試 URL
-        self.url1 = URLService.create_short_url(self.user1, "https://zzz-example.com")
-        self.url2 = URLService.create_short_url(self.user1, "https://aaa-example.com")
-        self.url3 = URLService.create_short_url(self.user1, "https://mmm-example.com")
-
-    # ============ Service Layer - Toggle Tests ============
-
-    def test_toggle_url_status_active_to_inactive(self):
-        """測試切換 URL 從啟用到停用"""
-        self.assertTrue(self.url1.is_active)
-
-        toggled = URLService.toggle_url_status(self.url1.id, self.user1)
-
-        self.assertFalse(toggled.is_active)
-        # 重新從資料庫載入確認
-        self.url1.refresh_from_db()
-        self.assertFalse(self.url1.is_active)
-
-    def test_toggle_url_status_inactive_to_active(self):
-        """測試切換 URL 從停用到啟用"""
-        # 先停用
-        self.url1.is_active = False
-        self.url1.save()
-
-        toggled = URLService.toggle_url_status(self.url1.id, self.user1)
-
-        self.assertTrue(toggled.is_active)
-        self.url1.refresh_from_db()
-        self.assertTrue(self.url1.is_active)
-
-    def test_toggle_url_status_non_owner(self):
-        """測試非擁有者無法 toggle"""
-        with self.assertRaises(AccessDeniedError):
-            URLService.toggle_url_status(self.url1.id, self.user2)
-
-        # URL 狀態應該沒有改變
-        self.url1.refresh_from_db()
-        self.assertTrue(self.url1.is_active)
-
-    def test_toggle_url_status_not_found(self):
-        """測試 toggle 不存在的 URL"""
-        with self.assertRaises(UrlNotFoundError):
-            URLService.toggle_url_status(99999, self.user1)
-
-    # ============ Service Layer - Filter Tests ============
-
-    def test_get_filtered_urls_by_status_active(self):
-        """測試篩選啟用的 URL"""
-        # 停用一個 URL
-        self.url2.is_active = False
-        self.url2.save()
-
-        urls = URLService.get_filtered_urls_with_stats(
-            self.user1, status_filter="active"
-        )
-
-        self.assertEqual(urls.count(), 2)
-        url_ids = [url.id for url in urls]
-        self.assertIn(self.url1.id, url_ids)
-        self.assertNotIn(self.url2.id, url_ids)
-        self.assertIn(self.url3.id, url_ids)
-
-    def test_get_filtered_urls_by_status_inactive(self):
-        """測試篩選停用的 URL"""
-        # 停用兩個 URL
-        self.url1.is_active = False
-        self.url1.save()
-        self.url2.is_active = False
-        self.url2.save()
-
-        urls = URLService.get_filtered_urls_with_stats(
-            self.user1, status_filter="inactive"
-        )
-
-        self.assertEqual(urls.count(), 2)
-        url_ids = [url.id for url in urls]
-        self.assertIn(self.url1.id, url_ids)
-        self.assertIn(self.url2.id, url_ids)
-        self.assertNotIn(self.url3.id, url_ids)
-
-    def test_get_filtered_urls_by_status_all(self):
-        """測試顯示全部 URL（不篩選狀態）"""
-        # 停用一個 URL
-        self.url2.is_active = False
-        self.url2.save()
-
-        urls = URLService.get_filtered_urls_with_stats(self.user1, status_filter=None)
-
-        self.assertEqual(urls.count(), 3)
-
-    # ============ Service Layer - Sort Tests ============
-
-    def test_get_filtered_urls_sort_by_created_at_desc(self):
-        """測試按建立時間降序排序"""
-        urls = URLService.get_filtered_urls_with_stats(
-            self.user1, sort_by="created_at", sort_order="desc"
-        )
-
-        # url3 是最後建立的，應該排第一
-        self.assertEqual(urls[0].id, self.url3.id)
-        self.assertEqual(urls[2].id, self.url1.id)
-
-    def test_get_filtered_urls_sort_by_created_at_asc(self):
-        """測試按建立時間升序排序"""
-        urls = URLService.get_filtered_urls_with_stats(
-            self.user1, sort_by="created_at", sort_order="asc"
-        )
-
-        # url1 是最早建立的，應該排第一
-        self.assertEqual(urls[0].id, self.url1.id)
-        self.assertEqual(urls[2].id, self.url3.id)
-
-    def test_get_filtered_urls_sort_by_original_url_asc(self):
-        """測試按原始網址升序排序"""
-        urls = URLService.get_filtered_urls_with_stats(
-            self.user1, sort_by="original_url", sort_order="asc"
-        )
-
-        # aaa 應該排第一，zzz 排最後
-        self.assertEqual(urls[0].original_url, "https://aaa-example.com")
-        self.assertEqual(urls[1].original_url, "https://mmm-example.com")
-        self.assertEqual(urls[2].original_url, "https://zzz-example.com")
-
-    def test_get_filtered_urls_sort_by_original_url_desc(self):
-        """測試按原始網址降序排序"""
-        urls = URLService.get_filtered_urls_with_stats(
-            self.user1, sort_by="original_url", sort_order="desc"
-        )
-
-        # zzz 應該排第一，aaa 排最後
-        self.assertEqual(urls[0].original_url, "https://zzz-example.com")
-        self.assertEqual(urls[1].original_url, "https://mmm-example.com")
-        self.assertEqual(urls[2].original_url, "https://aaa-example.com")
-
-    def test_get_filtered_urls_combined_filter_and_sort(self):
-        """測試組合篩選和排序"""
-        # 停用 url1 (zzz)
-        self.url1.is_active = False
-        self.url1.save()
-
-        urls = URLService.get_filtered_urls_with_stats(
-            self.user1, status_filter="active", sort_by="original_url", sort_order="asc"
-        )
-
-        # 只有兩個啟用的 URL，按字母順序排列
-        self.assertEqual(urls.count(), 2)
-        self.assertEqual(urls[0].original_url, "https://aaa-example.com")
-        self.assertEqual(urls[1].original_url, "https://mmm-example.com")
-
-    # ============ Service Layer - check_active Tests ============
-
-    def test_get_url_by_code_check_active_true_for_inactive_url(self):
-        """測試 check_active=True 時停用的 URL 拋出異常"""
-        # 停用 URL
-        self.url1.is_active = False
-        self.url1.save()
-
-        with self.assertRaises(UrlNotFoundError):
-            URLService.get_url_by_code(self.url1.short_code, check_active=True)
-
-    def test_get_url_by_code_check_active_false_for_inactive_url(self):
-        """測試 check_active=False 時停用的 URL 可以取得"""
-        # 停用 URL
-        self.url1.is_active = False
-        self.url1.save()
-
-        # 應該可以取得
-        url_obj = URLService.get_url_by_code(self.url1.short_code, check_active=False)
-
-        self.assertEqual(url_obj.id, self.url1.id)
-        self.assertFalse(url_obj.is_active)
-
-    def test_get_url_by_code_check_active_true_for_active_url(self):
-        """測試 check_active=True 時啟用的 URL 正常取得"""
-        url_obj = URLService.get_url_by_code(self.url1.short_code, check_active=True)
-
-        self.assertEqual(url_obj.id, self.url1.id)
-        self.assertTrue(url_obj.is_active)
-
-    # ============ View Layer - Toggle Tests ============
-
-    def test_toggle_url_view_success(self):
-        """測試 toggle view 成功切換狀態"""
-        self.client.login(username="user1", password="pass123")
-
-        response = self.client.post(reverse("toggle_url", args=[self.url1.id]))
-
-        # 應該重定向回 my_urls
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("my_urls"))
-
-        # URL 應該被停用
-        self.url1.refresh_from_db()
-        self.assertFalse(self.url1.is_active)
-
-    def test_toggle_url_view_non_owner(self):
-        """測試非擁有者無法 toggle"""
-        self.client.login(username="user2", password="pass123")
-
-        response = self.client.post(reverse("toggle_url", args=[self.url1.id]))
-
-        # 應該重定向並顯示錯誤訊息
-        self.assertEqual(response.status_code, 302)
-
-        # URL 狀態應該沒有改變
-        self.url1.refresh_from_db()
-        self.assertTrue(self.url1.is_active)
-
-    def test_toggle_url_view_requires_login(self):
-        """測試 toggle view 需要登入"""
-        response = self.client.post(reverse("toggle_url", args=[self.url1.id]))
-
-        # 應該重定向到登入頁
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith("/?next="))
-
-    def test_toggle_url_view_get_not_allowed(self):
-        """測試 toggle view 不接受 GET 請求"""
-        self.client.login(username="user1", password="pass123")
-
-        response = self.client.get(reverse("toggle_url", args=[self.url1.id]))
-
-        # 應該重定向並顯示錯誤訊息
-        self.assertEqual(response.status_code, 302)
-
-    # ============ View Layer - Filter Tests ============
-
-    def test_my_urls_view_with_status_filter_active(self):
-        """測試 my_urls view 的狀態篩選（active）"""
-        self.client.login(username="user1", password="pass123")
-
-        # 停用一個 URL
-        self.url2.is_active = False
-        self.url2.save()
-
-        response = self.client.get(reverse("my_urls") + "?status=active")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, self.url1.short_code)
-        self.assertNotContains(response, self.url2.short_code)
-        self.assertContains(response, self.url3.short_code)
-
-    def test_my_urls_view_with_status_filter_inactive(self):
-        """測試 my_urls view 的狀態篩選（inactive）"""
-        self.client.login(username="user1", password="pass123")
-
-        # 停用一個 URL
-        self.url2.is_active = False
-        self.url2.save()
-
-        response = self.client.get(reverse("my_urls") + "?status=inactive")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, self.url1.short_code)
-        self.assertContains(response, self.url2.short_code)
-        self.assertNotContains(response, self.url3.short_code)
-
-    def test_my_urls_view_with_sorting(self):
-        """測試 my_urls view 的排序功能"""
-        self.client.login(username="user1", password="pass123")
-
-        response = self.client.get(
-            reverse("my_urls") + "?sort_by=original_url&order=asc"
-        )
-
-        self.assertEqual(response.status_code, 200)
-        # 檢查排序是否正確（aaa 應該在 zzz 前面）
-        content = response.content.decode()
-        aaa_pos = content.find("aaa-example.com")
-        zzz_pos = content.find("zzz-example.com")
-        self.assertLess(aaa_pos, zzz_pos)
-
-    # ============ Integration Tests ============
-
-    def test_disabled_url_returns_404(self):
-        """測試停用的 URL 訪問時返回 404"""
-        # 停用 URL
-        self.url1.is_active = False
-        self.url1.save()
-
-        response = self.client.get(reverse("redirect", args=[self.url1.short_code]))
-
-        # 應該返回 404
-        self.assertEqual(response.status_code, 404)
-
-    def test_owner_can_view_disabled_url_stats(self):
-        """測試擁有者可以查看停用 URL 的統計"""
-        self.client.login(username="user1", password="pass123")
-
-        # 停用 URL
-        self.url1.is_active = False
-        self.url1.save()
-
-        response = self.client.get(reverse("url_stats", args=[self.url1.short_code]))
-
-        # 應該可以訪問
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "URL Statistics")
-        self.assertContains(response, self.url1.original_url)
-
-
 class RateLimitServiceTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="rl-user")
@@ -922,6 +595,325 @@ class RateLimitServiceTestCase(TestCase):
         RateLimitService.register_hit(self.user)
         self.user.refresh_from_db()
         self.assertFalse(self.user.profile.is_banned)
+
+
+# ============================================================
+# View Layer
+# ============================================================
+
+
+class HomeViewTestCase(TestCase):
+    def test_home_view(self):
+        """測試首頁"""
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "URL Shortener")
+
+
+class MyURLsViewTestCase(TestCase):
+    """my_urls view 測試（含 filter / sort）"""
+
+    def setUp(self):
+        self.user1 = User.objects.create_user(username="user1", password="pass123")
+        self.user2 = User.objects.create_user(username="user2", password="pass123")
+
+    def test_requires_login(self):
+        """測試我的網址頁需要登入"""
+        response = self.client.get(reverse("my_urls"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("/?next="))
+
+    def test_authenticated(self):
+        """測試已登入使用者可以訪問我的網址頁"""
+        self.client.login(username="user1", password="pass123")
+        response = self.client.get(reverse("my_urls"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "My URLs")
+
+    def test_user_isolation(self):
+        """測試使用者資料隔離"""
+        self.client.login(username="user1", password="pass123")
+
+        URLService.create_short_url(self.user1, "https://example1.com")
+        URLService.create_short_url(self.user2, "https://example2.com")
+
+        response = self.client.get(reverse("my_urls"))
+
+        # 應該只看到自己的 URL
+        self.assertContains(response, "example1.com")
+        self.assertNotContains(response, "example2.com")
+
+    def test_status_filter_active(self):
+        """測試 my_urls view 的狀態篩選（active）"""
+        self.client.login(username="user1", password="pass123")
+
+        url1 = URLService.create_short_url(self.user1, "https://zzz-example.com")
+        url2 = URLService.create_short_url(self.user1, "https://aaa-example.com")
+        url2.is_active = False
+        url2.save()
+
+        response = self.client.get(reverse("my_urls") + "?status=active")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, url1.short_code)
+        self.assertNotContains(response, url2.short_code)
+
+    def test_status_filter_inactive(self):
+        """測試 my_urls view 的狀態篩選（inactive）"""
+        self.client.login(username="user1", password="pass123")
+
+        url1 = URLService.create_short_url(self.user1, "https://zzz-example.com")
+        url2 = URLService.create_short_url(self.user1, "https://aaa-example.com")
+        url2.is_active = False
+        url2.save()
+
+        response = self.client.get(reverse("my_urls") + "?status=inactive")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, url1.short_code)
+        self.assertContains(response, url2.short_code)
+
+    def test_sorting(self):
+        """測試 my_urls view 的排序功能"""
+        self.client.login(username="user1", password="pass123")
+
+        URLService.create_short_url(self.user1, "https://zzz-example.com")
+        URLService.create_short_url(self.user1, "https://aaa-example.com")
+
+        response = self.client.get(
+            reverse("my_urls") + "?sort_by=original_url&order=asc"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        aaa_pos = content.find("aaa-example.com")
+        zzz_pos = content.find("zzz-example.com")
+        self.assertLess(aaa_pos, zzz_pos)
+
+
+class ShortenViewTestCase(TestCase):
+    """shorten view 測試"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="alice", password="pw1928374")
+        self.client.login(username="alice", password="pw1928374")
+
+    def test_create_short_url(self):
+        """測試建立短網址"""
+        response = self.client.post(
+            reverse("shorten"), {"original_url": "https://www.example.com"}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("my_urls"))
+
+        urls = URLModel.objects.filter(user=self.user)
+        self.assertEqual(urls.count(), 1)
+        self.assertEqual(urls[0].original_url, "https://www.example.com")
+
+    def test_create_short_url_invalid(self):
+        """測試建立無效的短網址"""
+        response = self.client.post(
+            reverse("shorten"), {"original_url": "not-a-valid-url"}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("my_urls"))
+
+        response = self.client.get(response.url)
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context["messages"])
+        self.assertTrue(
+            any(
+                "Invalid URL format" in str(m) or "Enter a valid URL" in str(m)
+                for m in messages_list
+            )
+        )
+
+    def test_blocked_domain_shows_error(self):
+        resp = self.client.post(
+            "/shorten/", {"original_url": "https://bit.ly/x"}, follow=True
+        )
+        self.assertContains(resp, "不允許")
+
+    def test_banned_user_gets_403(self):
+        self.user.profile.is_banned = True
+        self.user.profile.save()
+        resp = self.client.post("/shorten/", {"original_url": "https://ok.com"})
+        self.assertEqual(resp.status_code, 403)
+
+
+class ToggleURLViewTestCase(TestCase):
+    """toggle_url view 測試"""
+
+    def setUp(self):
+        self.user1 = User.objects.create_user(username="user1", password="pass123")
+        self.user2 = User.objects.create_user(username="user2", password="pass123")
+        self.url1 = URLService.create_short_url(self.user1, "https://zzz-example.com")
+
+    def test_success(self):
+        """測試 toggle view 成功切換狀態"""
+        self.client.login(username="user1", password="pass123")
+
+        response = self.client.post(reverse("toggle_url", args=[self.url1.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("my_urls"))
+
+        self.url1.refresh_from_db()
+        self.assertFalse(self.url1.is_active)
+
+    def test_non_owner(self):
+        """測試非擁有者無法 toggle"""
+        self.client.login(username="user2", password="pass123")
+
+        response = self.client.post(reverse("toggle_url", args=[self.url1.id]))
+
+        self.assertEqual(response.status_code, 302)
+
+        self.url1.refresh_from_db()
+        self.assertTrue(self.url1.is_active)
+
+    def test_requires_login(self):
+        """測試 toggle view 需要登入"""
+        response = self.client.post(reverse("toggle_url", args=[self.url1.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("/?next="))
+
+    def test_get_not_allowed(self):
+        """測試 toggle view 不接受 GET 請求"""
+        self.client.login(username="user1", password="pass123")
+
+        response = self.client.get(reverse("toggle_url", args=[self.url1.id]))
+
+        self.assertEqual(response.status_code, 302)
+
+
+class RedirectViewTestCase(TestCase):
+    """短網址重定向 view 測試"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="user1", password="pass123")
+
+    def test_success(self):
+        """測試短網址重定向"""
+        url_obj = URLService.create_short_url(self.user, "https://www.example.com")
+
+        response = self.client.get(reverse("redirect", args=[url_obj.short_code]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "https://www.example.com")
+        self.assertEqual(ClickLog.objects.filter(url=url_obj).count(), 1)
+
+    def test_not_found(self):
+        """測試不存在的短網址"""
+        response = self.client.get(reverse("redirect", args=["invalid_code"]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_disabled_url_returns_404(self):
+        """測試停用的 URL 訪問時返回 404"""
+        url_obj = URLService.create_short_url(self.user, "https://example.com")
+        url_obj.is_active = False
+        url_obj.save()
+
+        response = self.client.get(reverse("redirect", args=[url_obj.short_code]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_expired_url_shows_expired_page_no_click(self):
+        """測試過期 URL 顯示過期頁面且不記錄點擊"""
+        url, _ = URLService.get_or_create_short_url(self.user, "https://another.com")
+        URLModel.objects.filter(pk=url.pk).update(
+            expires_at=timezone.now() - timedelta(hours=1)
+        )
+        resp = self.client.get(f"/{url.short_code}/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "shortener/expired.html")
+        self.assertEqual(ClickLog.objects.filter(url=url).count(), 0)
+
+
+class URLStatsViewTestCase(TestCase):
+    """url_stats view 測試"""
+
+    def setUp(self):
+        self.user1 = User.objects.create_user(username="user1", password="pass123")
+        self.user2 = User.objects.create_user(username="user2", password="pass123")
+        self.url_obj = URLService.create_short_url(
+            self.user1, "https://www.example.com"
+        )
+
+    def test_requires_login(self):
+        """測試統計頁需要登入"""
+        response = self.client.get(reverse("url_stats", args=[self.url_obj.short_code]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("/?next="))
+
+    def test_owner_access(self):
+        """測試擁有者可以訪問統計頁"""
+        self.client.login(username="user1", password="pass123")
+
+        response = self.client.get(reverse("url_stats", args=[self.url_obj.short_code]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "URL Statistics")
+        self.assertContains(response, self.url_obj.original_url)
+
+    def test_non_owner_denied(self):
+        """測試非擁有者無法訪問統計頁"""
+        self.client.login(username="user2", password="pass123")
+
+        response = self.client.get(reverse("url_stats", args=[self.url_obj.short_code]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("my_urls"))
+
+        response = self.client.get(response.url)
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context["messages"])
+        self.assertTrue(
+            any(
+                "You do not have permission to view this URL" in str(m)
+                for m in messages_list
+            )
+        )
+
+    def test_not_found(self):
+        """測試統計頁不存在的短碼"""
+        self.client.login(username="user1", password="pass123")
+
+        response = self.client.get(reverse("url_stats", args=["invalid_code"]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("my_urls"))
+
+        response = self.client.get(response.url)
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context["messages"])
+        self.assertTrue(any("Short URL not found" in str(m) for m in messages_list))
+
+    def test_owner_can_view_disabled_url_stats(self):
+        """測試擁有者可以查看停用 URL 的統計"""
+        self.client.login(username="user1", password="pass123")
+
+        self.url_obj.is_active = False
+        self.url_obj.save()
+
+        response = self.client.get(reverse("url_stats", args=[self.url_obj.short_code]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "URL Statistics")
+        self.assertContains(response, self.url_obj.original_url)
+
+
+# ============================================================
+# Management Commands
+# ============================================================
 
 
 class CleanupExpiredUrlsTestCase(TestCase):

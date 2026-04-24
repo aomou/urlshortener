@@ -37,6 +37,7 @@ phase 6 Settins, Admin, Docs
 - 6.2 docs: document guest mode and Facebook removal
 
 fix: 訪客登入時不應該出現 log out 按鈕 -> 加 middleware
+refactor(test): Service, View 分開
 
 # To-do
 
