@@ -61,11 +61,11 @@ Coming soon
 
 **Infrastructure**
 - PostgreSQL (Database)
-- Docker + Docker Compose (Containerization)
-- Nginx (Reverse proxy & static file serving)
-- Cloudflare (CDN + SSL termination, Full Strict mode)
+- Docker + Docker Compose (web + db)
+- System Nginx on host (Reverse proxy, TLS termination)
+- Cloudflare (CDN + SSL, Full Strict mode)
 - Gunicorn (WSGI server)
-- WhiteNoise (Static file fallback)
+- WhiteNoise (Static file serving from inside the container)
 
 **Libraries / Tooling**
 - django-allauth (OAuth authentication)
@@ -147,29 +147,29 @@ urlshortener/
 ├── users/                 # Auth + guest mode
 ├── templates/             # HTML templates
 ├── static/                # CSS, JS files
-├── nginx/                 # Nginx config & TLS certs
+├── nginx/                 # System nginx config template (deployed to /etc/nginx/sites-available/)
 ├── doc/                   # Project documentation (incl. deployment.md)
 ├── Dockerfile             # Web image
-├── docker-compose.yml     # web + db + nginx
+├── docker-compose.yml     # web + db (host nginx is outside Docker)
 ├── deploy.sh              # One-shot deploy script
 └── CLAUDE.md              # Claude Code instructions
 ```
 
 ## 🌐 Deployment
 
-Self-hosted on a VPS using Docker Compose, with Cloudflare in front for SSL (Full Strict) and CDN.
+Self-hosted on a VPS using **system-level Nginx** as the front door, Docker for the app stack, Cloudflare in front for SSL (Full Strict) and CDN.
 
 ```
-User ──HTTPS──> Cloudflare ──HTTPS (Origin Cert)──> Nginx ──HTTP──> Gunicorn (Django) ──> PostgreSQL
-                                                      ↳ /static/ served directly
+User ──HTTPS──> Cloudflare ──HTTPS (Origin Cert)──> Host Nginx ──HTTP──> Gunicorn + WhiteNoise (Django container) ──> PostgreSQL container
 ```
 
 **Quick overview:**
-1. Provision a VPS, install Docker, clone the repo
-2. Add the domain to Cloudflare, set SSL/TLS to **Full (Strict)**, generate an Origin Certificate, and place it in `nginx/certs/`
+1. Provision a VPS, install Docker + Nginx, clone the repo
+2. Cloudflare: add domain, set SSL to **Full (Strict)**, generate Origin Cert → `/etc/ssl/cloudflare/`
 3. Configure `.env` (`SECRET_KEY`, `SITE_DOMAIN`, DB credentials, OAuth keys)
 4. Update Google OAuth redirect URI to `https://<SITE_DOMAIN>/accounts/google/login/callback/`
-5. Run `./deploy.sh` (builds images, migrates DB, collects static, starts services)
+5. Copy `nginx/url-shortener.conf` to `/etc/nginx/sites-available/`, fill in the domain, enable, reload nginx
+6. Run `./deploy.sh` (builds image, migrates DB, starts containers)
 
 Full step-by-step instructions: [`doc/deployment.md`](doc/deployment.md)
 

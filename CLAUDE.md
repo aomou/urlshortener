@@ -202,12 +202,12 @@ PostgreSQL in both development and production (`django.db.backends.postgresql`).
 
 ### Static Files
 
-Division of labor between WhiteNoise and Nginx:
-- **WhiteNoise** (build-time): `CompressedManifestStaticFilesStorage` runs during `collectstatic` to produce hashed filenames + pre-compressed `.gz`/`.br` files in `staticfiles/`
-- **Nginx** (runtime, prod): serves `/static/` directly from the shared `static_volume`, with `gzip_static on;` so it sends WhiteNoise's pre-compressed files when the client supports them
-- **WhiteNoise middleware** is kept as fallback (e.g., running the web container without Nginx in dev/CI); in prod it never fires because Nginx intercepts `/static/` first
+WhiteNoise handles both pipeline and serving:
+- **Build-time**: `CompressedManifestStaticFilesStorage` runs during `collectstatic` (in the Dockerfile) to produce hashed filenames + pre-compressed `.gz`/`.br` files in `/app/staticfiles/` inside the image
+- **Runtime**: `WhiteNoiseMiddleware` serves `/static/` directly from the image filesystem, including the pre-compressed variants
+- Host nginx does not handle `/static/`; everything proxies to gunicorn and WhiteNoise short-circuits before the view layer
 
-Net effect: WhiteNoise handles the asset pipeline, Nginx handles the actual bytes.
+Trade-off: WhiteNoise is ~10x slower than nginx for static serving, but throughput is far above what this app needs. The simplification (no static volume bind-mount, no permissions juggling) is worth it.
 
 ### Reverse Proxy
 
@@ -215,7 +215,7 @@ Net effect: WhiteNoise handles the asset pipeline, Nginx handles the actual byte
 
 ### Deployment
 
-VPS-based deployment using Docker Compose (web + db + nginx) fronted by Cloudflare with Full (Strict) SSL. See `doc/deployment.md` for the full step-by-step guide.
+VPS-based deployment: Docker Compose runs web + db; **system-level nginx** on the host acts as the public reverse proxy (TLS termination with Cloudflare Origin Cert at Full Strict, real IP from `CF-Connecting-IP`). Web container only listens on `127.0.0.1:8000`. See `doc/deployment.md` for the full step-by-step guide.
 
 ## Code Style
 
@@ -242,13 +242,12 @@ shortener/            - URL shortening app
 users/                - User management app
   (uses Django's built-in User model)
 
-nginx/                - Nginx reverse proxy config
-  default.conf.template - HTTP→HTTPS, /static/, proxy to web:8000 (server_name from $SITE_DOMAIN via envsubst)
-  certs/              - Cloudflare Origin Cert (gitignored)
+nginx/                - System nginx config template (deployed to /etc/nginx/sites-available/)
+  url-shortener.conf  - 80→443 redirect, Cloudflare Origin Cert, proxy to 127.0.0.1:8000
 
-Dockerfile            - Web image (Python 3.13 + gunicorn)
-docker-compose.yml    - web + db + nginx services
-deploy.sh             - Build, migrate, collectstatic, up
+Dockerfile            - Web image (Python 3.13 + gunicorn + collectstatic at build time)
+docker-compose.yml    - web + db services (web binds 127.0.0.1:8000)
+deploy.sh             - Build, migrate, up
 
 doc/                  - Project documentation
   url_shortener_spec.md - Comprehensive specification (in Chinese)

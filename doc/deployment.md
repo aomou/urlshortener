@@ -1,4 +1,4 @@
-# VPS 部署指南（Docker + Nginx + Cloudflare）
+# VPS 部署指南（系統 Nginx + Docker + Cloudflare）
 
 本文件記錄把這個專案部署到 VPS 的完整步驟。
 
@@ -8,29 +8,32 @@
                   ┌──────────────┐
    使用者 ──HTTPS──→ │  Cloudflare  │
                   └──────┬───────┘
-                         │ HTTPS（Origin Cert）
+                         │ HTTPS（Origin Cert，Full Strict）
                          ▼
                   ┌──────────────┐
-                  │   Nginx      │  :443  (Docker container)
-                  │              │  ↳ /static/ 直接 serve
+                  │ 系統 Nginx   │  :80 / :443  （host 上跑）
+                  │ (host)       │  ← /etc/ssl/cloudflare/ 的 cert
                   └──────┬───────┘
-                         │ HTTP
+                         │ HTTP，proxy_pass
                          ▼
                   ┌──────────────┐
-                  │  Gunicorn    │  :8000 (web container)
+                  │  Gunicorn    │  127.0.0.1:8000  (Docker container)
+                  │  + WhiteNoise│  ← 服務 /static/
                   │  (Django)    │
                   └──────┬───────┘
                          │
                          ▼
                   ┌──────────────┐
-                  │  PostgreSQL  │  :5432 (db container)
+                  │  PostgreSQL  │  :5432  (Docker container)
                   └──────────────┘
 ```
 
 - **Cloudflare**：終止使用者端 SSL、提供 CDN/DDoS 防護
-- **Nginx**：反向代理、靜態檔服務、與 Cloudflare 之間的 TLS（Full Strict）
-- **Gunicorn**：執行 Django 應用
-- **PostgreSQL**：資料庫，資料以 Docker volume 持久化
+- **系統 Nginx**（host）：反向代理、處理 Cloudflare 的 Origin Cert（Full Strict），整台 VPS 的「總入口」
+- **Web container**（Gunicorn + WhiteNoise）：跑 Django，靜態檔由 WhiteNoise 直接 serve（內含 hashed 檔名 + brotli/gzip 預壓縮）
+- **DB container**（PostgreSQL）：資料以 Docker volume 持久化
+
+> 為什麼系統 nginx 而非 Docker nginx？因為這台 VPS 規劃放多個服務，系統 nginx 是「總入口」，每個服務一個 server block，比較容易擴充。
 
 ---
 
@@ -52,15 +55,23 @@ sudo usermod -aG docker $USER
 # 重新登入讓 group 生效
 ```
 
-### 1.2 安裝 git 與 clone 專案
+### 1.2 安裝 Nginx
+```bash
+sudo apt update
+sudo apt install -y nginx
+sudo systemctl enable nginx        # 開機自啟
+```
+
+> 多數 VPS image 預裝 nginx，這步可能已完成。
+
+### 1.3 Clone 專案
 ```bash
 sudo apt install -y git
 git clone <your-repo-url> ~/urlshortener
 cd ~/urlshortener
 ```
 
-### 1.3 設定防火牆（UFW）
-只開 80、443、SSH：
+### 1.4 設定防火牆（UFW）
 ```bash
 sudo ufw allow OpenSSH
 sudo ufw allow 80/tcp
@@ -90,8 +101,7 @@ sudo ufw enable
 > 一定要 Proxied（橘色雲），不然 Cloudflare 不會處理 SSL 與 CDN。
 
 ### 2.3 SSL/TLS 模式
-1. Cloudflare Dashboard → **SSL/TLS** → **Overview**
-2. 設為 **Full (Strict)**
+Cloudflare Dashboard → **SSL/TLS** → **Overview** → 設為 **Full (Strict)**
 
 ### 2.4 產生 Origin Certificate
 1. SSL/TLS → **Origin Server** → **Create Certificate**
@@ -100,44 +110,50 @@ sudo ufw enable
    - **Origin Certificate** → 存成 `origin.pem`
    - **Private Key** → 存成 `origin.key`
 
-### 2.5 把 cert 上傳到 VPS
-在你的本機：
+### 2.5 把 cert 安裝到 VPS（系統共用位置）
+本機：
 ```bash
-scp origin.pem origin.key user@<VPS IP>:~/urlshortener/nginx/certs/
+scp origin.pem origin.key user@<VPS IP>:~/
 ```
-在 VPS 上：
+VPS 上：
 ```bash
-chmod 600 ~/urlshortener/nginx/certs/origin.key
+sudo mkdir -p /etc/ssl/cloudflare
+sudo mv ~/origin.pem ~/origin.key /etc/ssl/cloudflare/
+sudo chown root:root /etc/ssl/cloudflare/origin.*
+sudo chmod 644 /etc/ssl/cloudflare/origin.pem
+sudo chmod 600 /etc/ssl/cloudflare/origin.key
 ```
+
+> cert 放系統位置，未來別的服務也共用同一份（如果是 wildcard cert）。
 
 ---
 
 ## Step 3：環境變數
 
-### 3.1 建立 `.env`
 ```bash
+cd ~/urlshortener
 cp .env.example .env
 nano .env
 ```
 
-需填寫：
+要填的關鍵欄位：
 ```
 SECRET_KEY=<產生一組亂數>
 DEBUG=False
-SITE_DOMAIN=example.com           # 你的網域
-DJANGO_SUPERUSER_PASSWORD=<密碼>
+SITE_DOMAIN=example.com
+DJANGO_SUPERUSER_PASSWORD=<passphrase>
 
 DB_NAME=url_db
-DB_USER=postgres
+DB_USER=urlshort_admin
 DB_PASSWORD=<強密碼>
-DB_HOST=db                        # 注意：是 docker service 名，不是 localhost
-DB_PORT=5432
 
-GOOGLE_CLIENT_ID=<從 Google Cloud Console 取得>
+GOOGLE_CLIENT_ID=<生產用那組>
 GOOGLE_CLIENT_SECRET=<同上>
 ```
 
-### 3.2 產生 SECRET_KEY
+> Docker 部署不需要 DB_HOST 跟 DB_PORT（compose 寫死 `db:5432`），但有也不影響。
+
+產生 SECRET_KEY：
 ```bash
 python3 -c "import secrets; print(secrets.token_urlsafe(50))"
 ```
@@ -146,18 +162,48 @@ python3 -c "import secrets; print(secrets.token_urlsafe(50))"
 
 ## Step 4：Google OAuth 設定
 
-到 [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials：
+[Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials：
 
-1. 編輯你的 OAuth Client
-2. **Authorized redirect URIs** 加入：
+1. 建一個**生產用的** OAuth Client（不要用本機 dev 那組）
+2. **Authorized redirect URIs** 加：
    ```
    https://example.com/accounts/google/login/callback/
    ```
-3. 儲存
+3. 拿到 Client ID/Secret 填回 `.env`
 
 ---
 
-## Step 5：部署
+## Step 5：設定系統 Nginx
+
+### 5.1 複製專案內的 nginx 設定到系統位置
+```bash
+sudo cp ~/urlshortener/nginx/url-shortener.conf /etc/nginx/sites-available/url-shortener
+```
+
+### 5.2 把設定裡的網域填入
+```bash
+sudo sed -i 's/SITE_DOMAIN_PLACEHOLDER/example.com/g' /etc/nginx/sites-available/url-shortener
+```
+（把 `example.com` 換成你的實際網域）
+
+### 5.3 啟用這個 site
+```bash
+sudo ln -s /etc/nginx/sites-available/url-shortener /etc/nginx/sites-enabled/
+# 移除預設 site，避免攔截
+sudo rm /etc/nginx/sites-enabled/default
+```
+
+### 5.4 測試並 reload
+```bash
+sudo nginx -t                     # 必須回 "syntax is ok" 和 "test is successful"
+sudo systemctl reload nginx
+```
+
+> 任何時候改了 `/etc/nginx/sites-available/url-shortener`，跑 `sudo nginx -t && sudo systemctl reload nginx`。
+
+---
+
+## Step 6：跑 Docker stack
 
 ```bash
 cd ~/urlshortener
@@ -166,23 +212,23 @@ chmod +x deploy.sh
 ```
 
 `deploy.sh` 會：
-1. 建立 Docker images
+1. 建立 Docker images（Dockerfile 內含 collectstatic）
 2. 跑資料庫 migration
-3. `collectstatic` 把靜態檔放進 named volume（讓 nginx 能讀）
-4. 啟動所有 services（web、db、nginx）
+3. 啟動 web + db 兩個 container（web 只聽 `127.0.0.1:8000`）
 
 ### 驗證
 ```bash
-docker compose ps              # 三個 service 都該是 running
-docker compose logs -f nginx   # 看 nginx 啟動有沒有錯
-docker compose logs -f web     # 看 gunicorn
+docker compose ps                                # web / db 兩個都 Up
+docker compose logs -f web --tail=30             # 看 gunicorn 啟動
+curl -I http://127.0.0.1:8000                    # 從 host 直連 web，應該回 200/302
+curl -I https://example.com                      # 走完整鏈路，應該回 200
 ```
 
-打開瀏覽器 → `https://example.com` → 應該看到首頁，且 URL 是綠色鎖頭。
+打開瀏覽器 → `https://example.com` → 看到首頁 + 綠色鎖頭即成功。
 
 ---
 
-## Step 6：建立 Django superuser（首次部署）
+## Step 7：建立 Django superuser（首次部署）
 
 ```bash
 docker compose exec web python manage.py createsuperuser
@@ -198,24 +244,35 @@ docker compose exec web python manage.py createsuperuser
 ```bash
 cd ~/urlshortener
 git pull
-./deploy.sh
+./deploy.sh                        # 會重 build image，新的靜態檔自動進去
 ```
+
+### 改 nginx 設定
+```bash
+sudo nano /etc/nginx/sites-available/url-shortener
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+> 如果是改 repo 內的 `nginx/url-shortener.conf`，記得 `git pull` 後重新 `sudo cp` + `sed` + `nginx -t` + `reload`。
 
 ### 看 log
 ```bash
-docker compose logs -f web
-docker compose logs -f nginx
+docker compose logs -f web              # Django / gunicorn
+sudo tail -f /var/log/nginx/access.log  # nginx access
+sudo tail -f /var/log/nginx/error.log   # nginx error
 ```
 
 ### 重啟單一 service
 ```bash
 docker compose restart web
+sudo systemctl restart nginx
 ```
 
 ### 進入 container
 ```bash
 docker compose exec web bash
-docker compose exec db psql -U postgres url_db
+docker compose exec db psql -U urlshort_admin url_db
 ```
 
 ### 排程（cron）
@@ -232,7 +289,7 @@ crontab -e
 
 ### 備份資料庫
 ```bash
-docker compose exec -T db pg_dump -U postgres url_db | gzip > backup_$(date +%F).sql.gz
+docker compose exec -T db pg_dump -U urlshort_admin url_db | gzip > backup_$(date +%F).sql.gz
 ```
 
 ---
@@ -241,18 +298,19 @@ docker compose exec -T db pg_dump -U postgres url_db | gzip > backup_$(date +%F)
 
 | 症狀 | 可能原因 |
 |------|---------|
-| `502 Bad Gateway` | `web` 沒起來，看 `docker compose logs web` |
-| `400 Bad Request` (Django) | `SITE_DOMAIN` 沒設，或 `ALLOWED_HOSTS` 不含網域 |
-| Cloudflare 顯示 `Error 526` | Origin cert 過期或路徑錯，檢查 `nginx/certs/` |
-| OAuth callback 失敗 | Google Console 的 redirect URI 沒更新成 https 網域 |
-| Click 紀錄全部是 Cloudflare IP | nginx 沒設 `real_ip_header` 或 `set_real_ip_from`，檢查 `nginx/default.conf.template` |
-| 靜態檔 404 | 沒跑 `collectstatic`，或 named volume 沒建，重跑 `./deploy.sh` |
+| `502 Bad Gateway` | web container 沒起來，看 `docker compose logs web`；或 web 沒 listen 8000，看 `curl -I http://127.0.0.1:8000` |
+| `400 Bad Request` (Django) | `SITE_DOMAIN` 沒設或設錯，settings.py 的 `ALLOWED_HOSTS` 不含實際網域 |
+| Cloudflare 顯示 `Error 526` | Origin cert 過期或路徑錯，`ls -la /etc/ssl/cloudflare/`；或 nginx ssl_certificate 路徑寫錯 |
+| OAuth callback 失敗 | Google Console 的 redirect URI 沒更新成 https 網域，或 client secret 填錯 |
+| Click 紀錄全部是 Cloudflare IP | nginx 沒設 `real_ip_header` / `set_real_ip_from`，檢查 `/etc/nginx/sites-available/url-shortener` |
+| 靜態檔 404 | image build 沒成功跑 collectstatic（rebuild：`docker compose build --no-cache web`） |
+| `port 80 already in use` | 系統 nginx 跟 docker container 搶 port，本架構是系統 nginx 用 80，確認沒有舊的 docker 殘留 `docker compose down` |
 
 ---
 
 ## 安全強化（可選）
 
-1. **限制只接受 Cloudflare 流量**：在 UFW 只允許 [Cloudflare IPv4/IPv6](https://www.cloudflare.com/ips/) 連 80/443
-2. **Cloudflare WAF / Bot Fight Mode**：在 Cloudflare Dashboard 啟用
+1. **限制只接受 Cloudflare 流量**：UFW 只允許 [Cloudflare IPv4/IPv6](https://www.cloudflare.com/ips/) 連 80/443
+2. **Cloudflare WAF / Bot Fight Mode**：Dashboard 啟用
 3. **fail2ban**：保護 SSH
 4. **自動安全更新**：`sudo apt install unattended-upgrades`

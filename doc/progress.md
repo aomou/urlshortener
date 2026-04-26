@@ -39,23 +39,25 @@ phase 6 Settins, Admin, Docs
 fix: 訪客登入時不應該出現 log out 按鈕 -> 加 middleware
 refactor(test): Service, View 分開
 
-VPS + Nginx + Cloudflare 部署重構
+VPS + Nginx + Cloudflare 部署重構（第一輪：Docker nginx）
 - e6e44a1 chore: remove Render-era build.sh
 - 6a6da77 feat(deploy): containerize with Docker, Nginx, and Cloudflare (Full Strict)
 - 10d8f1f refactor(settings): replace RENDER_EXTERNAL_HOSTNAME with SITE_DOMAIN; trust proxy headers
 - 8525e2c feat(analytics): prefer CF-Connecting-IP for client IP resolution
 - bc3a2a7 docs: add VPS deployment guide; refresh CLAUDE.md, README.md, progress.md
+- b2394d1 fix(deploy): unify DB_* naming; clarify .env.example for local vs Docker
 
-範圍涵蓋
-- settings: SITE_DOMAIN + SECURE_PROXY_SSL_HEADER + USE_X_FORWARDED_HOST
-- services: _get_client_ip 三層 fallback（CF-Connecting-IP → X-Forwarded-For → REMOTE_ADDR）
-- docker-compose: 加 nginx service + static_volume；web 不對外開 port
-- deploy.sh: 加 collectstatic 把靜態檔寫進 named volume
-- nginx/default.conf.template: 80→443 redirect、Cloudflare Origin Cert (Full Strict)、real_ip 取自 CF IP 段、gzip_static 配合 WhiteNoise 預壓縮檔、server_name 由 envsubst 從 SITE_DOMAIN 注入
-- nginx/certs/.gitkeep + .gitignore 排除 *.pem / *.key、.env.production
-- .env.example / .env.production: SITE_DOMAIN 取代 RENDER_EXTERNAL_HOSTNAME
-- doc/deployment.md（新）: 完整 VPS 部署步驟（Cloudflare DNS / Origin Cert / env / OAuth / cron / 疑難排解）
-- CLAUDE.md / README.md: 同步更新
+部署架構重構（第二輪：改成系統 nginx，uncommitted）
+- 動機：VPS 預裝 nginx 且未來規劃多服務（再開 blog、其他工具），系統 nginx 當總入口才能擴充。Docker nginx 在多服務場景會撞 port。
+- docker-compose.yml: 拿掉 nginx service 與 static_volume；web 改成 ports `127.0.0.1:8000:8000`，外部流量必須經系統 nginx
+- deploy.sh: 拿掉 collectstatic 那行（Dockerfile build 已經做，無 named volume 不需重跑）
+- nginx/default.conf.template + nginx/certs/.gitkeep: 刪除（容器版產物）
+- nginx/url-shortener.conf（新）: 系統 nginx site config，部署時 cp 到 /etc/nginx/sites-available/，sed 把 SITE_DOMAIN_PLACEHOLDER 換成實際網域
+- 靜態檔策略：改用 WhiteNoise（runtime 在 Django 容器內 serve）。host nginx 純 reverse proxy，不再碰 /static/
+- cert 位置：從 ./nginx/certs/ 移到 /etc/ssl/cloudflare/（系統共用）
+- .gitignore: 拿掉 nginx/certs/*.pem|*.key（不再放 repo）
+- doc/deployment.md: 重寫，新架構步驟（裝 host nginx → 設 site config → docker compose）
+- CLAUDE.md / README.md: 同步
 
 # To-do
 
@@ -79,7 +81,8 @@ VPS + Nginx + Cloudflare 部署重構
 
 部署前要留意
 - DJANGO_SUPERUSER_PASSWORD VPS 上第一次 createsuperuser 前要改強密碼
-- nginx/default.conf.template 的 Cloudflare IP 段是寫死的，每半年到一年要對 https://www.cloudflare.com/ips/ 校正
+- nginx/url-shortener.conf 的 Cloudflare IP 段是寫死的，每半年到一年要對 https://www.cloudflare.com/ips/ 校正
 - UFW 預計開放 80/443 給整個 Internet，攻擊者若知道 origin IP 可繞過 Cloudflare；deployment.md 有提到「鎖到 Cloudflare IP only」是進階選項，正式上線前值得做
-- 靜態檔更新：之後只改 CSS/JS 也要跑 `./deploy.sh`（裡面有 collectstatic），不能只 `docker compose restart web`，否則 named volume 不會更新
-- VPS 部署時 docker-compose 預設讀 `.env`，記得把 `.env.production` rename 或複製為 `.env`（或在 deploy.sh 加 `cp .env.production .env`）
+- 靜態檔更新：改 CSS/JS 後跑 `./deploy.sh` 會 rebuild image，新檔自動進去；不要只 `docker compose restart web`（不會重 build）
+- VPS 部署時 docker-compose 預設讀 `.env`，記得把 `.env.production` rename 或複製為 `.env`
+- nginx/url-shortener.conf 是 repo 內的範本，部署時要 cp 到 /etc/nginx/sites-available/ 且 sed 換掉 SITE_DOMAIN_PLACEHOLDER；改 repo 範本後別忘了同步到系統路徑
