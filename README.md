@@ -61,9 +61,11 @@ Coming soon
 
 **Infrastructure**
 - PostgreSQL (Database)
-- Render (Deployment platform)
+- Docker + Docker Compose (Containerization)
+- Nginx (Reverse proxy & static file serving)
+- Cloudflare (CDN + SSL termination, Full Strict mode)
 - Gunicorn (WSGI server)
-- WhiteNoise (Static file serving)
+- WhiteNoise (Static file fallback)
 
 **Libraries / Tooling**
 - django-allauth (OAuth authentication)
@@ -130,7 +132,7 @@ uv run python manage.py test
 - `uv run python manage.py cleanup_expired_guests`
 
 These commands remove expired short URLs and expired guest accounts.
-Scheduling/automation (cron) is planned for Batch 3 during VPS deployment.
+On the VPS they are scheduled via host-side `cron` invoking `docker compose exec` (see `doc/deployment.md`).
 
 ## 📁 Project Structure
 
@@ -142,26 +144,34 @@ urlshortener/
 │   ├── services.py        # URLService, AnalyticsService
 │   ├── views.py           # HTTP request handlers
 │   └── tests.py           # Comprehensive test suite
+├── users/                 # Auth + guest mode
 ├── templates/             # HTML templates
 ├── static/                # CSS, JS files
-├── doc/                   # Project documentation
+├── nginx/                 # Nginx config & TLS certs
+├── doc/                   # Project documentation (incl. deployment.md)
+├── Dockerfile             # Web image
+├── docker-compose.yml     # web + db + nginx
+├── deploy.sh              # One-shot deploy script
 └── CLAUDE.md              # Claude Code instructions
 ```
 
 ## 🌐 Deployment
 
-Configured for [Render](https://render.com/) deployment:
+Self-hosted on a VPS using Docker Compose, with Cloudflare in front for SSL (Full Strict) and CDN.
 
-1. Create PostgreSQL database and Web Service on Render
-2. Set environment variables:
-   - `DATABASE_URL` (auto-provided by Render)
-   - `SECRET_KEY`
-   - `RENDER_EXTERNAL_HOSTNAME` (auto-provided by Render)
-   - OAuth credentials (optional, for social login)
-3. Configure deployment:
-   - Build Command: `./build.sh`
-   - Start Command: `gunicorn core.wsgi:application`
-4. Update OAuth redirect URIs in provider consoles to production domain
+```
+User ──HTTPS──> Cloudflare ──HTTPS (Origin Cert)──> Nginx ──HTTP──> Gunicorn (Django) ──> PostgreSQL
+                                                      ↳ /static/ served directly
+```
+
+**Quick overview:**
+1. Provision a VPS, install Docker, clone the repo
+2. Add the domain to Cloudflare, set SSL/TLS to **Full (Strict)**, generate an Origin Certificate, and place it in `nginx/certs/`
+3. Configure `.env` (`SECRET_KEY`, `SITE_DOMAIN`, DB credentials, OAuth keys)
+4. Update Google OAuth redirect URI to `https://<SITE_DOMAIN>/accounts/google/login/callback/`
+5. Run `./deploy.sh` (builds images, migrates DB, collects static, starts services)
+
+Full step-by-step instructions: [`doc/deployment.md`](doc/deployment.md)
 
 ## 📝 Key Implementation Details
 

@@ -165,10 +165,12 @@ When a short URL is accessed:
 
 ### IP Address Handling
 
-Use django-ipware or similar to:
-- Extract real IP from `X-Forwarded-For` header (handles proxies/CDN)
-- Fallback to `REMOTE_ADDR`
-- Anonymize by masking last octet (e.g., 192.168.1.100 → 192.168.1.0)
+`AnalyticsService._get_client_ip` resolves the real client IP with three-tier fallback:
+1. `CF-Connecting-IP` — set by Cloudflare; cannot be spoofed by upstream clients
+2. `X-Forwarded-For` — for non-CF reverse-proxy setups (first IP wins)
+3. `REMOTE_ADDR` — direct connection / local dev
+
+Stored full in DB for audit; anonymized in UI by masking the last octet (e.g., `192.168.1.100` → `192.168.1.0`).
 
 ## Error Handling
 
@@ -185,22 +187,35 @@ Views should never let service exceptions bubble up; always wrap service calls i
 
 ### Environment Variables
 
-Required for production (use `.env` file in development):
-- `SECRET_KEY` - Django secret key
-- `DATABASE_URL` - PostgreSQL connection string
-- `DEBUG` - Set to False in production
-- OAuth credentials configured via Django Admin
+Loaded from `.env` (dev) or `.env.production` (prod). See `.env.example` for the full list.
+
+- `SECRET_KEY` — Django secret key
+- `DEBUG` — `False` in production
+- `SITE_DOMAIN` — production domain (e.g., `example.com`); appended to `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS`. Leave blank in local dev.
+- `DATABASE_URL` — optional; takes precedence over individual `DB_*` vars
+- `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT` — Postgres connection (host is `db` inside Docker Compose)
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — OAuth credentials (passed to allauth via `SOCIALACCOUNT_PROVIDERS`, no Django Admin step needed)
 
 ### Database
 
-- **Development:** Currently using SQLite (settings.py shows sqlite3)
-- **Production:** Must use PostgreSQL as per spec
-- Switch to PostgreSQL before deploying: Update `DATABASES` setting and install `psycopg2-binary`
+PostgreSQL in both development and production (`django.db.backends.postgresql`). Configured via `DATABASE_URL` (using `dj_database_url`) with fallback to individual `DB_*` vars.
 
 ### Static Files
 
-- WhiteNoise is included in dependencies for static file serving
-- Configure in production: Add to MIDDLEWARE and set STATIC_ROOT
+Division of labor between WhiteNoise and Nginx:
+- **WhiteNoise** (build-time): `CompressedManifestStaticFilesStorage` runs during `collectstatic` to produce hashed filenames + pre-compressed `.gz`/`.br` files in `staticfiles/`
+- **Nginx** (runtime, prod): serves `/static/` directly from the shared `static_volume`, with `gzip_static on;` so it sends WhiteNoise's pre-compressed files when the client supports them
+- **WhiteNoise middleware** is kept as fallback (e.g., running the web container without Nginx in dev/CI); in prod it never fires because Nginx intercepts `/static/` first
+
+Net effect: WhiteNoise handles the asset pipeline, Nginx handles the actual bytes.
+
+### Reverse Proxy
+
+`SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")` and `USE_X_FORWARDED_HOST = True` are set so Django correctly detects the original `https` scheme behind Nginx + Cloudflare.
+
+### Deployment
+
+VPS-based deployment using Docker Compose (web + db + nginx) fronted by Cloudflare with Full (Strict) SSL. See `doc/deployment.md` for the full step-by-step guide.
 
 ## Code Style
 
@@ -215,20 +230,29 @@ Required for production (use `.env` file in development):
 ## Project Structure
 
 ```
-core/               - Django project settings
-  settings.py       - Main configuration
-  urls.py           - Root URL routing
+core/                 - Django project settings
+  settings.py         - Main configuration
+  urls.py             - Root URL routing
 
-shortener/          - URL shortening app
-  models.py         - URLModel, ClickLog
-  views.py          - URL creation, redirect, stats views
-  services.py       - URLService, AnalyticsService
+shortener/            - URL shortening app
+  models.py           - URLModel, ClickLog
+  views.py            - URL creation, redirect, stats views
+  services.py         - URLService, AnalyticsService
 
-users/              - User management app
+users/                - User management app
   (uses Django's built-in User model)
 
-doc/                - Project documentation
+nginx/                - Nginx reverse proxy config
+  default.conf.template - HTTP→HTTPS, /static/, proxy to web:8000 (server_name from $SITE_DOMAIN via envsubst)
+  certs/              - Cloudflare Origin Cert (gitignored)
+
+Dockerfile            - Web image (Python 3.13 + gunicorn)
+docker-compose.yml    - web + db + nginx services
+deploy.sh             - Build, migrate, collectstatic, up
+
+doc/                  - Project documentation
   url_shortener_spec.md - Comprehensive specification (in Chinese)
+  deployment.md       - VPS + Docker + Nginx + Cloudflare deployment guide
 ```
 
 ## Testing Strategy
