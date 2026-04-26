@@ -403,7 +403,10 @@ class AnalyticsService:
         """
         取得客戶端真實 IP 位址
 
-        處理 Proxy/CDN 的 X-Forwarded-For Header
+        優先順序：
+        1. CF-Connecting-IP（Cloudflare 專用，最可靠、不可偽造）
+        2. X-Forwarded-For（一般反向代理）
+        3. REMOTE_ADDR（直連 / 本機 dev）
 
         Args:
             request: Django HttpRequest 物件
@@ -411,13 +414,16 @@ class AnalyticsService:
         Returns:
             str: IP 位址
         """
+        cf_ip = request.META.get("HTTP_CF_CONNECTING_IP")
+        if cf_ip:
+            return cf_ip
+
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
             # 取第一個 IP（最接近客戶端）
-            ip = x_forwarded_for.split(",")[0].strip()
-        else:
-            ip = request.META.get("REMOTE_ADDR")
-        return ip
+            return x_forwarded_for.split(",")[0].strip()
+
+        return request.META.get("REMOTE_ADDR")
 
     @staticmethod
     def _get_device_type(user_agent) -> str:
