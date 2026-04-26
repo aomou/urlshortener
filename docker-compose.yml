@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -10,10 +11,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    expose:
-      - "8000"
-    volumes:
-      - static_volume:/app/staticfiles
+    # 只對 host loopback 開 port，外部流量經過系統 nginx
+    ports:
+      - "127.0.0.1:8000:8000"
 
   db:
     image: postgres:16
@@ -31,23 +31,5 @@ services:
       timeout: 5s
       retries: 5
 
-  nginx:
-    image: nginx:alpine
-    restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      # 掛到 templates/，nginx entrypoint 會跑 envsubst 把 ${SITE_DOMAIN} 替換掉
-      # 結果輸出到 /etc/nginx/conf.d/default.conf
-      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
-      - static_volume:/app/staticfiles:ro
-    depends_on:
-      - web
-
 volumes:
   postgres_data:
-  static_volume:

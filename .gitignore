@@ -16,10 +16,6 @@ wheels/
 .env
 .env.production
 
-# Nginx TLS certs (Cloudflare Origin Certificate)
-nginx/certs/*.pem
-nginx/certs/*.key
-
 # Docs
 doc/archived/
 
