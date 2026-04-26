@@ -26,20 +26,20 @@ load_dotenv()
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv(
-    "SECRET_KEY", "django-insecure-o(p7qmw$f2nv%dmaj8)bhqhbd7)te1*^(d+w7z_@7wd3++w-o4"
-)
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = not bool(os.getenv("RENDER"))
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
 ]
 
-if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
-    ALLOWED_HOSTS.append(os.getenv("RENDER_EXTERNAL_HOSTNAME"))
+# 部署網域（VPS + Cloudflare）。本機開發可留空。
+SITE_DOMAIN = os.getenv("SITE_DOMAIN")
+if SITE_DOMAIN:
+    ALLOWED_HOSTS.append(SITE_DOMAIN)
 
 
 # Application definition
@@ -71,6 +71,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "users.middleware.GuestExpiryMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -109,15 +110,20 @@ SOCIALACCOUNT_PROVIDERS = {
         },
         "APP": {
             "client_id": os.getenv("GOOGLE_CLIENT_ID", ""),
-            "secret": os.getenv("GOOGLE_SECRET_KEY", ""),
+            "secret": os.getenv("GOOGLE_CLIENT_SECRET", ""),
         },
     }
 }
 
 CSRF_TRUSTED_ORIGINS = []
 
-if os.getenv("RENDER_EXTERNAL_HOSTNAME"):
-    CSRF_TRUSTED_ORIGINS.append(f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}")
+if SITE_DOMAIN:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{SITE_DOMAIN}")
+
+# Reverse proxy (Nginx + Cloudflare) 的 SSL 與 host header 處理
+# Nginx 會把外部的 https 透過 X-Forwarded-Proto 告訴 Django，避免 Django 以為是 http 而誤判
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 
 ROOT_URLCONF = "core.urls"
 
