@@ -1,0 +1,18 @@
+.git
+.gitignore
+.venv
+__pycache__/
+*.py[cod]
+*.sqlite3
+.DS_Store
+.ruff_cache/
+.pytest_cache/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local docs and tooling not needed in runtime image
+doc/
+docs/
