@@ -280,12 +280,19 @@ docker compose exec db psql -U urlshort_admin url_db
 ```bash
 crontab -e
 ```
-加入：
+先建 log 目錄（家目錄底下，免 sudo）：
+```bash
+mkdir -p ~/logs
 ```
-# 每天 03:00 清理過期短網址與訪客帳號
-0 3 * * * cd /home/<user>/urlshortener && docker compose exec -T web python manage.py cleanup_expired_urls >> /var/log/url_cleanup.log 2>&1
-5 3 * * * cd /home/<user>/urlshortener && docker compose exec -T web python manage.py cleanup_expired_guests >> /var/log/guest_cleanup.log 2>&1
+
+加入（把 `<user>` 換成實際登入帳號，例如 `ubuntu`；cron 不展開 `~`，路徑必須絕對）：
 ```
+# 每週日 03:00 清理過期短網址與訪客帳號
+0 3 * * 0 cd /home/<user>/urlshortener && docker compose exec -T web python manage.py cleanup_expired_urls >> /home/<user>/logs/url_cleanup.log 2>&1
+5 3 * * 0 cd /home/<user>/urlshortener && docker compose exec -T web python manage.py cleanup_expired_guests >> /home/<user>/logs/guest_cleanup.log 2>&1
+```
+
+> 過期 URL 在 view 層就會 render expired page，cron 純粹是清 DB；MVP 規模每週一次足夠，DB 變胖再調回每天。
 
 ### 備份資料庫
 ```bash

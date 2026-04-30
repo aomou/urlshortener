@@ -57,20 +57,21 @@ VPS + Nginx + Cloudflare 部署重構（第一輪：Docker nginx）
 - cert 位置：從 ./nginx/certs/ 移到 /etc/ssl/cloudflare/（系統共用）
 - .gitignore: 拿掉 nginx/certs/*.pem|*.key（不再放 repo）
 - doc/deployment.md: 重寫，新架構步驟（裝 host nginx → 設 site config → docker compose）
-- CLAUDE.md / README.md: 同步
+
+- VPS 上設 cron 每週日 03:00 跑 cleanup_expired_urls + cleanup_expired_guests
 
 # To-do
-
-部署當下要做的（VPS 上、不是程式碼）
-- 買網域，把 NS 指到 Cloudflare，建 A record（橘色雲）
-- Cloudflare 產 Origin Cert，scp 進 nginx/certs/
-- 重新申請一組生產用 Google OAuth Client ID/Secret
-- VPS 上設 cron 跑 cleanup_expired_urls + cleanup_expired_guests
 
 產品 / UX
 - fix: 所有警告或說明文字都用英文顯示
 - 新增 API endpoint
+- admin 登入後點擊 My URLs 旁邊的名字 admin（一般使用者顯示帳號名的地方）可以顯示 `/admin/` 後台
 - UI improve
+    - 手機版：Created / Clicks / Expires 擠在一起
+    - Active URLs 文字跟 Shorten URL 按鈕中間間隔大一點 
+    - footer 文字
+    - 複製按鈕 link 改成 copy
+    - 登入顯示名字的 (Google) 可以刪掉，現在只有google 
 
 未來可加
 - 作成 Telegram Bot 自用
