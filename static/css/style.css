@@ -723,6 +723,17 @@ footer {
     opacity: 0.6;
     transition: opacity var(--transition-fast), transform var(--transition-fast);
     vertical-align: middle;
+    color: var(--color-text-secondary);
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.copy-btn svg {
+    width: 16px;
+    height: 16px;
+    display: block;
 }
 
 .copy-btn:hover {

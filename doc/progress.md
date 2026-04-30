@@ -79,7 +79,6 @@ API endpoint + Telegram Bot 對接架構（spec & plan 已寫，尚未實作）
 - UI improve
     - Active URLs 文字跟 Shorten URL 按鈕中間間隔大一點 
     - footer 文字
-    - 複製按鈕 link 改成 copy
     - 登入顯示名字的 (Google) 可以刪掉，現在只有 Google
 - CI/CD GitHub Actions
 
