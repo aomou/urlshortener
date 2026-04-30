@@ -204,6 +204,11 @@ def redirect_view(request: HttpRequest, code: str) -> HttpResponse:
     return redirect(url_obj.original_url)  # 302 重定向到原網址
 
 
+def privacy_view(request: HttpRequest) -> HttpResponse:
+    """隱私權政策頁（公開）"""
+    return render(request, "shortener/privacy.html")
+
+
 def health_check(request: HttpRequest) -> JsonResponse:
     """
     健康檢查端點

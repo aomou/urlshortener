@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy{% endblock %}
+
+{% block content %}
+<article class="card privacy-page">
+    <h2>隱私權政策</h2>
+    <p class="privacy-updated">最後更新：2026-04-27</p>
+
+    <p>本服務（URL Shortener）為個人開發的短網址 demo 專案。本文件說明使用本服務時所收集的資料、用途與保存方式。如有疑問或欲刪除資料，請來信 <a href="mailto:jojopig528@gmail.com">jojopig528@gmail.com</a>。</p>
+
+    <h3>收集的資料</h3>
+    <p><strong>帳號資料：</strong>使用訪客模式時，系統會建立隨機 username 的臨時帳號（例如 guest_a1b2c3d4），不收集任何個資；使用 Google 登入時，透過 OAuth 取得 email、顯示名稱與頭像 URL，不會取得密碼或 Gmail、Drive 等其他 Google 資料。</p>
+    <p><strong>使用者建立的內容：</strong>原始長網址與系統產生的短網址代碼。本服務會比對本地網域黑名單，已知的釣魚或惡意網域將被拒絕建立。</p>
+    <p><strong>點擊記錄：</strong>每次點擊短網址時，記錄點擊時間、IP 位址（完整 IP 存於資料庫，統計頁面顯示時 IPv4 會遮蔽最後一段、IPv6 遮蔽後 80 bit）、從 User-Agent 解析出的瀏覽器、作業系統、裝置類型，以及 HTTP Referer（若瀏覽器有提供）。本服務不收集 GPS 位置，不使用第三方廣告或行為追蹤。</p>
+
+    <h3>資料保留期限</h3>
+    <p>訪客帳號於建立後 24 小時刪除，所屬短網址與點擊記錄一同 cascade 刪除。Google 登入使用者建立的短網址於建立後 7 天刪除，點擊記錄一同 cascade 刪除；帳號本身持續保留，直到使用者來信要求刪除。清理工作由伺服器 cron 每週執行一次。短網址過了到期時間後即停止運作，實際從資料庫移除最多延遲至下一次 cron 執行。</p>
+
+    <h3>第三方服務</h3>
+    <p>Google OAuth 用於登入身分驗證（政策：<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a>）。Cloudflare 用於 CDN、DDoS 防護與 TLS 終端（政策：<a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">https://www.cloudflare.com/privacypolicy/</a>）。所有請求皆會經過 Cloudflare，連線資料（IP、User-Agent 等）依其自身政策處理。</p>
+
+    <h3>Cookie 與安全</h3>
+    <p>僅使用必要的 session cookie 與 CSRF token cookie，無任何廣告或追蹤用途。全站採用 HTTPS，登入由 Google 處理、本服務不儲存任何密碼。短時間內超量觸發限流的帳號會被自動封鎖；每位使用者有建立短網址的數量上限（訪客 5 個、Google 使用者 10 個）。</p>
+
+    <h3>使用者權利</h3>
+    <p>本服務未提供自助式的資料匯出或刪除介面。欲查看、刪除、更正或取得個人資料副本，請以本文件首段提供的聯絡信箱來信，並附上登入用的 Google email 或訪客帳號 username。訪客帳號 24 小時內會自動刪除，通常無需主動申請。</p>
+
+    <h3>政策變更</h3>
+    <p>本文件若有實質變更，將更新頂端的「最後更新」日期，重大變更會於網站首頁公告。</p>
+</article>
+{% endblock %}
