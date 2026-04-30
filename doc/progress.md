@@ -77,11 +77,11 @@ API endpoint + Telegram Bot 對接架構（spec & plan 已寫，尚未實作）
 - fix: 所有警告或說明文字都用英文顯示
 - admin 登入後點擊 My URLs 旁邊的名字 admin（一般使用者顯示帳號名的地方）可以顯示 `/admin/` 後台
 - UI improve
-    - 手機版：Created / Clicks / Expires 擠在一起
     - Active URLs 文字跟 Shorten URL 按鈕中間間隔大一點 
     - footer 文字
     - 複製按鈕 link 改成 copy
     - 登入顯示名字的 (Google) 可以刪掉，現在只有 Google
+- CI/CD GitHub Actions
 
 未來可加
 - 儀表板加分析圖表 graph

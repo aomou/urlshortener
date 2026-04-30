@@ -870,6 +870,18 @@ dialog.about-modal .about-meta {
         flex-direction: column;
     }
 
+    .url-item .url-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-2);
+    }
+
+    .url-item .url-actions {
+        margin-top: var(--spacing-2);
+        width: 100%;
+        justify-content: flex-end;
+    }
+
     .filter-row {
         flex-direction: column;
         align-items: stretch;
